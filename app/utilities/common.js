@@ -78,18 +78,39 @@ export const htmlStringToDom = (htmlString = "") =>
   (new DOMParser().parseFromString(htmlString, 'text/html'))
     .body.firstChild
 
+const offBoundsSelectors = [
+  'vis-bug',
+  'hotkey-map',
+  'visbug-metatip',
+  'visbug-ally',
+  'visbug-label',
+  'visbug-handles',
+  'visbug-corners',
+  'visbug-grip',
+  'visbug-gridlines',
+]
+
+const matchesOffBounds = node =>
+  node && node.closest &&
+  offBoundsSelectors.some(selector => node.closest(selector))
+
+const matchesOffBoundsHostChain = node => {
+  let current = node
+
+  while (current) {
+    if (current.matches &&
+        offBoundsSelectors.some(selector => current.matches(selector)))
+      return current
+
+    const root = current.getRootNode && current.getRootNode()
+    current = root && root.host
+  }
+
+  return null
+}
+
 export const isOffBounds = node =>
-  node.closest && (
-       node.closest('vis-bug')
-    || node.closest('hotkey-map')
-    || node.closest('visbug-metatip')
-    || node.closest('visbug-ally')
-    || node.closest('visbug-label')
-    || node.closest('visbug-handles')
-    || node.closest('visbug-corners')
-    || node.closest('visbug-grip')
-    || node.closest('visbug-gridlines')
-  )
+  matchesOffBounds(node) || matchesOffBoundsHostChain(node)
 
 export const isSelectorValid = (qs => (
   selector => {

@@ -8,6 +8,9 @@ const state = {
   elements: [],
 }
 
+const fallbackSwatchColor = 'hsl(0 0% 22%)'
+const fallbackIconColor = 'hsl(0 0% 96%)'
+
 export function ColorPicker(pallete, selectorEngine) {
   const foregroundPicker  = $('#foreground', pallete)
   const backgroundPicker  = $('#background', pallete)
@@ -88,13 +91,13 @@ export function ColorPicker(pallete, selectorEngine) {
       else if (isMeaningfulBackground && !isMeaningfulForeground || isMeaningfulBackground && isMeaningfulForeground)
         setActive('background')
 
-      const new_fg = isMeaningfulForeground   ? fg : ''
-      const new_bg = isMeaningfulBackground   ? bg : ''
-      const new_bo = isMeaningfulBorder       ? bo : ''
+      const new_fg = isMeaningfulForeground   ? fg : fallbackSwatchColor
+      const new_bg = isMeaningfulBackground   ? bg : fallbackSwatchColor
+      const new_bo = isMeaningfulBorder       ? bo : fallbackSwatchColor
 
-      const fg_icon = isMeaningfulForeground  ? contrast_color(fg) : ''
-      const bg_icon = isMeaningfulBackground  ? contrast_color(bg) : ''
-      const bo_icon = isMeaningfulBorder      ? contrast_color(bo) : ''
+      const fg_icon = isMeaningfulForeground  ? contrast_color(fg) : fallbackIconColor
+      const bg_icon = isMeaningfulBackground  ? contrast_color(bg) : fallbackIconColor
+      const bo_icon = isMeaningfulBorder      ? contrast_color(bo) : fallbackIconColor
       
       fgInput.attr('value', fg)
       bgInput.attr('value', bg)
@@ -123,20 +126,20 @@ export function ColorPicker(pallete, selectorEngine) {
       // todo: this is giving up, and can be solved
       foregroundPicker.attr('style', `
         box-shadow: ${state.active_color == 'foreground' ? shadows.active : shadows.inactive};
-        --contextual_color: transparent;
-        --icon_color: var(--theme-bg);
+        --contextual_color: ${fallbackSwatchColor};
+        --icon_color: ${fallbackIconColor};
       `)
 
       backgroundPicker.attr('style', `
         box-shadow: ${state.active_color == 'background' ? shadows.active : shadows.inactive};
-        --contextual_color: transparent;
-        --icon_color: var(--theme-bg);
+        --contextual_color: ${fallbackSwatchColor};
+        --icon_color: ${fallbackIconColor};
       `)
 
       borderPicker.attr('style', `
         box-shadow: ${state.active_color == 'border' ? shadows.active : shadows.inactive};
-        --contextual_color: transparent;
-        --icon_color: var(--theme-bg);
+        --contextual_color: ${fallbackSwatchColor};
+        --icon_color: ${fallbackIconColor};
       `)
     }
   }

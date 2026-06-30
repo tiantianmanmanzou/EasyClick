@@ -6,6 +6,14 @@ body:not([testing]) [data-selected=true] {
   transition: all 0.15s ease;
 }
 
+body[data-visbug-selector-cursor-lock] {
+  cursor: default !important;
+}
+
+body[data-visbug-selector-cursor-lock] * {
+  cursor: default !important;
+}
+
 [data-pseudo-select=true] {
   outline: 1px dashed hsl(267, 100%, 58%);
 }

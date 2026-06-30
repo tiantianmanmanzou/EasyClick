@@ -5,11 +5,14 @@
   inset: 0 auto auto 0;
   z-index: var(--layer-1);
   max-width: min-content;
+  width: max-content;
+  height: max-content;
 
   /* popover fixes */
   background: transparent;
   border: none;
   overflow: visible;
+  margin: 0;
 
   opacity: 0;
   animation: present-yourself .3s ease forwards;
@@ -21,6 +24,23 @@
   & [constructible-support="true"] aside {
     transition: opacity 0.3s ease, transform 0.2s ease;
   }
+}
+
+/* Collapsed toolbar: only the first tool + the collapse toggle are visible. */
+:host([collapsed]) > ol:first-of-type > li:not(:first-child):not([data-tool="toggle-collapse"]) {
+  display: none;
+}
+/* Rotate the collapse chevron when expanded for a visual cue. */
+:host li[data-tool="toggle-collapse"] > svg {
+  transition: transform .2s ease;
+}
+:host(:not([collapsed])) li[data-tool="toggle-collapse"] > svg {
+  transform: rotate(180deg);
+}
+
+/* Preview toggle stays inside the main toolbar and only changes icon state. */
+:host li[data-tool="toggle-preview"] > svg {
+  transition: transform .2s ease;
 }
 
 :host > ol {
@@ -36,6 +56,8 @@
   border-radius: 2em;
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
+  opacity: 0.92;
+  transition: opacity .18s ease, background-color .18s ease, box-shadow .18s ease;
 
   &:first-of-type {
     box-shadow: 0 0.25em 0.5em hsla(0,0%,0%,10%);
@@ -50,6 +72,17 @@
     @media (prefers-color-scheme: dark) {
       box-shadow: 0 0.25em 0.5em hsla(0,0%,0%,50%);
     }
+  }
+}
+
+:host(:not(:hover):not(:focus-within)) > ol {
+  opacity: 0.56;
+}
+
+:host(:hover),
+:host(:focus-within) {
+  & > ol {
+    opacity: 1;
   }
 }
 
@@ -96,13 +129,15 @@
   }
 
   & > aside {
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     position: absolute;
     direction: ltr;
     text-align: left;
     left: 3em;
     top: 0;
-    z-index: -2;
+    max-height: calc(100vh - 2em);
+    z-index: 2;
     pointer-events: none;
     background: var(--theme-bg);
     color: var(--theme-text_color);
@@ -112,6 +147,8 @@
     opacity: 0;
     transform: translateX(-1em);
     will-change: transform, opacity;
+    pointer-events: none;
+    visibility: hidden;
 
     @media (prefers-reduced-motion: reduce) {
       transition-duration: 0s;
@@ -179,36 +216,45 @@
     }
   }
 
-  &:hover:not([data-tool="search"]) > aside,
-  &[data-tool="search"] > svg:hover + aside {
-    opacity: 1;
-    transform: translateX(0);
-    transition-delay: 1s;
-  }
-
   & input::-webkit-calendar-picker-indicator {
     background: inherit;
     color: var(--neon-pink);
   }
 }
 
-:host [colors] {
-  margin-top: .5em;
+:host([preview-open]) li[data-active=true] > aside {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+  visibility: visible;
 }
 
-:host [colors] > li {
+:host([preview-open]) li[data-active=true] {
+  z-index: 3;
+}
+
+:host li.color {
+  --contextual_color: hsl(0 0% 22%);
+  --icon_color: hsl(0 0% 96%);
+  width: calc(2.25em * 0.85);
+  height: calc(2.25em * 0.85);
   overflow: hidden;
   border-radius: 50%;
+  border: 1px solid hsl(0 0% 100% / 12%);
   box-shadow: 0 0 0 2px var(--theme-bg), 0 0.25em 0.5em hsla(0,0%,0%,25%);
   background: var(--contextual_color);
-  margin-bottom: 0.5em;
-
-  &:first-child {
-    margin-top: 0;
-  }
+  margin-bottom: 0.05em;
 }
 
-:host [colors] li:hover:after {
+:host li.color:last-of-type {
+  margin-bottom: 0.2em;
+}
+
+:host li[data-tool="toggle-collapse"] {
+  margin-top: 0.05em;
+}
+
+:host li.color:hover:after {
   top: 0;
 }
 
@@ -264,11 +310,11 @@
   }
 }
 
-:host [colors] > li > svg {
+:host li.color > svg {
   fill: var(--icon_color);
 }
 
-:host [colors] > li > svg > rect:last-child {
+:host li.color > svg > rect:last-child {
   stroke: hsla(0,0%,0%,20%);
   stroke-width: 0.5px;
 }
@@ -311,4 +357,50 @@
 
 :host::backdrop {
   background: none !important;
+}
+
+/* Copy Selector: configurable fields in the hover preview */
+:host li[data-tool="selector"] > aside {
+  pointer-events: none;
+}
+
+:host [data-selector-config] {
+  pointer-events: auto;
+  border: 1px solid var(--theme-icon_color);
+  border-radius: .5em;
+  padding: .75em;
+  display: grid;
+  gap: .4em;
+  cursor: default;
+
+  & > legend {
+    font-size: .85em;
+    font-weight: 600;
+    color: var(--theme-color);
+    padding: 0 .35em;
+  }
+
+  & > label {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: .5em;
+    font-size: .9em;
+    cursor: pointer;
+
+    & > input[type="checkbox"] {
+      width: 1em;
+      height: 1em;
+      accent-color: var(--theme-color, hsl(267, 100%, 58%));
+      cursor: pointer;
+    }
+
+    & > span {
+      color: var(--theme-text_color);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
 }

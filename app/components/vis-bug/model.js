@@ -2,6 +2,26 @@ import * as Icons from './vis-bug.icons'
 import { metaKey, altKey } from '../../utilities/'
 
 export const VisBugModel = {
+  c: {
+    tool:        'selector',
+    icon:        Icons.selector,
+    label:       '<span><u>C</u>opy Selector</span>',
+    description: 'Click to copy the element\'s CSS selector',
+    instruction: `<div table>
+                    <div>
+                      <b>Copy selector:</b>
+                      <span>click</span>
+                    </div>
+                    <div>
+                      <b>Multi-select:</b>
+                      <span>shift+click</span>
+                    </div>
+                    <div>
+                      <b>Clear:</b>
+                      <span>esc</span>
+                    </div>
+                  </div>`,
+  },
   g: {
     tool:        'guides',
     icon:        Icons.guides,

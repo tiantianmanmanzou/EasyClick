@@ -1,14 +1,15 @@
 <p align="center">
   <img src="./assets/visbug.png" width="300" height="300" alt="visbug">
-  <br>
-  <a href="https://travis-ci.org/GoogleChromeLabs/ProjectVisBug"><img src="https://travis-ci.org/GoogleChromeLabs/ProjectVisBug.svg?branch=master" alt="travis build status"></a>
-  <a href="https://chrome.google.com/webstore/detail/visbug/cdockenadnadldjbbgcallicgledbeoc?hl=en"><img src="https://badgen.net/chrome-web-store/users/cdockenadnadldjbbgcallicgledbeoc"></a>
-  <a href="https://chrome.google.com/webstore/detail/visbug/cdockenadnadldjbbgcallicgledbeoc?hl=en"><img src="https://badgen.net/chrome-web-store/stars/cdockenadnadldjbbgcallicgledbeoc"></a>
 </p>
 
-# 「VisBug」
+# EasyClick
 
-> Open source web design debug tools
+> Browser extension adapted from the original ProjectVisBug repository
+
+EasyClick is a standalone plugin project derived from
+[GoogleChromeLabs/ProjectVisBug](https://github.com/GoogleChromeLabs/ProjectVisBug).
+This repository contains my customized changes and is maintained as an
+independent project under the name `EasyClick`.
 
 - Point, click & tinker
 - Hold shift and **multi-select**
@@ -46,7 +47,7 @@ Let's do this **design community, I'm looking at you!** Make a GitHub account an
 -   **A competitor** to design authoring tools like Figma, Sketch, XD, etc; **it's a complement!**
 -   Something you would use **to start from scratch**
 -   A **design system recognizer**, enforcer, enabler, etc.. but it is a **design system leverager!**
--   An **interaction** prototyping tool, you need to produce the states for VisBug to design against
+-   An **interaction** prototyping tool, you need to produce the states for EasyClick to design against
 
 <br>
 <br>
@@ -61,16 +62,16 @@ Let's do this **design community, I'm looking at you!** Make a GitHub account an
 [Edge Extension](https://microsoftedge.microsoft.com/addons/detail/visbug/kdmdoinnkaeognnpegpkepdnggeaodkn)  
 
 ### Getting Started
-[Check the Wiki](https://github.com/GoogleChromeLabs/ProjectVisBug/wiki)  
-[Master List of Keyboard Commands](https://github.com/GoogleChromeLabs/ProjectVisBug/wiki/Keyboard-Master-List)  
-[Open Feature Requests](https://github.com/GoogleChromeLabs/ProjectVisBug/issues?q=is%3Aopen+is%3Aissue+label%3A%22%E2%9A%A1%EF%B8%8F+feature%22)  
-[Chat on Gitter](https://gitter.im/VisBug)  
-[Chat on Spectrum](https://spectrum.chat/visbug)  
-[Load VisBug from a CDN](https://codepen.io/argyleink/pen/rNrQrpO)  
+This project is adapted from the original ProjectVisBug codebase. Please refer
+to the upstream repository for historical background and older documentation:
+
+- [ProjectVisBug Repository](https://github.com/GoogleChromeLabs/ProjectVisBug)
+- [ProjectVisBug Wiki](https://github.com/GoogleChromeLabs/ProjectVisBug/wiki)
+- [Master List of Keyboard Commands](https://github.com/GoogleChromeLabs/ProjectVisBug/wiki/Keyboard-Master-List)
 
 ### Web Component (coming soon 💀🤘)
 ```sh
-npm i visbug
+npm i
 ```
 
 
@@ -90,8 +91,8 @@ If it hasn't, just open a [new clear and descriptive issue](../../issues/new).
 ### Submitting pull requests
 
 -   Fork it!
--   Clone your fork: `git clone https://github.com/<your-username>/ProjectVisBug`
--   Navigate to the newly cloned directory: `cd ProjectVisBug`
+-   Clone your fork: `git clone https://github.com/<your-username>/EasyClick`
+-   Navigate to the newly cloned directory: `cd EasyClick`
 -   Create a new branch for the new feature: `git checkout -b my-new-feature`
 -   Install the packages for development: `npm i`
 -   Make your changes

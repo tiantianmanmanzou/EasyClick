@@ -132,3 +132,28 @@ export const accessibility = `
     <path d="M12,2c1.1,0,2,0.9,2,2s-0.9,2-2,2s-2-0.9-2-2S10.9,2,12,2z M21,9h-6v13h-2v-6h-2v6H9V9H3V7h18V9z"/>
   </svg>
 `
+
+export const selector = `
+  <svg viewBox="0 0 24 24">
+    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+    <path d="M10.4 14.2l-1.3 1.3 2.3 2.3 4.3-4.3-1.3-1.3-3 3z"/>
+  </svg>
+`
+
+export const collapse = `
+  <svg viewBox="0 0 24 24">
+    <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>
+  </svg>
+`
+
+export const preview_open = `
+  <svg viewBox="0 0 24 24">
+    <path d="M9 5l7 7-7 7-1.41-1.41L13.17 12 7.59 6.41 9 5z"/>
+  </svg>
+`
+
+export const preview_close = `
+  <svg viewBox="0 0 24 24">
+    <path d="M15 5l1.41 1.41L10.83 12l5.58 5.59L15 19l-7-7 7-7z"/>
+  </svg>
+`

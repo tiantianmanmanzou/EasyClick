@@ -24,7 +24,8 @@ export class Hover extends Handles {
         width="${width}" height="${height}"
         viewBox="0 0 ${width} ${height}"
       >
-        <rect fill="none" width="100%" height="100%"></rect>
+        <rect class="hover-fill" width="100%" height="100%"></rect>
+        <rect class="hover-outline" width="100%" height="100%"></rect>
     `
   }
 }

@@ -22,12 +22,20 @@ var platform = typeof browser === 'undefined'
   ? chrome
   : browser
 
+// See launcher.js: a duplicate-id contextMenus.create() throws synchronously
+// and would abort this module on service-worker restart. Guard every create.
+const safeCreate = props => {
+  try {
+    platform.contextMenus.create(props, () => void chrome.runtime.lastError)
+  } catch (e) {}
+}
+
 const sendColorMode = () => {
   platform.tabs.query({active: true, currentWindow: true}, ([tab]) => {
     tab && platform.tabs.sendMessage(tab.id, {
       action: 'COLOR_MODE',
       params: {mode:colormodestate.mode},
-    })
+    }).catch(() => {})  // no VisBug listener in this tab yet — ignore
   })
 }
 
@@ -73,14 +81,14 @@ export const getColorMode = () => {
 // load synced color choice on load
 getColorMode()
 
-platform.contextMenus.create({
+safeCreate({
   id:     'color-mode',
   title:  'Colors',
   contexts: ['all'],
 })
 
 color_options.forEach(option => {
-  platform.contextMenus.create({
+  safeCreate({
     id:       option,
     parentId: 'color-mode',
     title:    ' '+option,

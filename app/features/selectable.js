@@ -16,7 +16,8 @@ import {
   metaKey, htmlStringToDom, createClassname, camelToDash,
   isOffBounds, getStyle, getStyles, deepElementFromPoint, getShadowValues,
   isSelectorValid, findNearestChildElement, findNearestParentElement,
-  getTextShadowValues, isFixed, onRemove
+  getTextShadowValues, isFixed, onRemove, generateSelector, generateFullSelector,
+  expandBorders
 } from '../utilities/'
 
 export function Selectable(visbug) {
@@ -27,9 +28,14 @@ export function Selectable(visbug) {
   let handles             = []
 
   const hover_state       = {
-    target:   null,
-    element:  null,
-    label:    null,
+    target:            null,
+    element:           null,
+    label:             null,
+    kind:              null,
+    containerTarget:   null,
+    containerElement:  null,
+    gapTarget:         null,
+    gapElements:       [],
   }
 
   const listen = () => {
@@ -71,7 +77,17 @@ export function Selectable(visbug) {
     hotkeys.unbind(`esc,${metaKey}+d,backspace,del,delete,alt+del,alt+backspace,${metaKey}+e,${metaKey}+shift+e,${metaKey}+g,${metaKey}+shift+g,tab,shift+tab,enter,shift+enter`)
   }
 
+  const getEventOrigin = e =>
+    e.composedPath
+      ? e.composedPath()[0]
+      : e.target
+
   const on_click = e => {
+    if (!visbug.activeTool) return
+
+    const eventOrigin = getEventOrigin(e)
+    if (isOffBounds(eventOrigin)) return
+
     const $target = deepElementFromPoint(e.clientX, e.clientY)
 
     if (isOffBounds($target) && !selected.filter(el => el == $target).length)
@@ -116,9 +132,11 @@ export function Selectable(visbug) {
   }
 
   const on_dblclick = e => {
+    if (!visbug.activeTool) return
+
     e.preventDefault()
     e.stopPropagation()
-    if (isOffBounds(e.target)) return
+    if (isOffBounds(getEventOrigin(e))) return
     visbug.toolSelected('text')
   }
 
@@ -314,7 +332,7 @@ export function Selectable(visbug) {
   }
 
   const on_selection = e =>
-    !isOffBounds(e.target)
+    !isOffBounds(getEventOrigin(e))
     && selected.length
     && selected[0].textContent != e.target.textContent
     && e.preventDefault()
@@ -390,6 +408,12 @@ export function Selectable(visbug) {
     const $target = deepElementFromPoint(e.clientX, e.clientY)
     const tool = visbug.activeTool
 
+    // No active tool (deselected) — don't render any hover UI.
+    if (!tool) {
+      clearMeasurements()
+      return clearHover()
+    }
+
     if (isOffBounds($target) || $target.hasAttribute('data-selected') || $target.hasAttribute('draggable')) {
       clearMeasurements()
       return clearHover()
@@ -403,8 +427,21 @@ export function Selectable(visbug) {
         || tool === 'accessibility'
         || tool === 'margin'
         || tool === 'padding'
-        || tool === 'inspector'),
+        || tool === 'inspector'
+        || tool === 'selector'),
+      kind: tool === 'selector' ? 'selector-target' : 'default',
+      backdropFactory: tool === 'selector' ? createSelectorTargetBackdrop : null,
     })
+
+    if (tool === 'selector')
+      overlayContainerHoverUI(getHoverContainer($target))
+    else
+      clearContainerHover()
+
+    if (tool === 'selector')
+      overlayGapHoverUI(getGapHost($target))
+    else
+      clearGapHover()
 
     if (tool === 'guides' && selected.length >= 1 && !selected.includes($target)) {
       $target.setAttribute('data-measuring', true)
@@ -542,13 +579,24 @@ export function Selectable(visbug) {
   const combineNodeNameAndClass = node =>
     `${node.nodeName.toLowerCase()}${createClassname(node)}`
 
-  const overlayHoverUI = ({el, no_hover = false, no_label = true}) => {
-    if (hover_state.target === el) return
+  const overlayHoverUI = ({el, no_hover = false, no_label = true, kind = 'default', backdropFactory = null}) => {
+    if (hover_state.target === el && hover_state.kind === kind) {
+      if (hover_state.element) {
+        hover_state.element.position = {el}
+        syncHoverBackdrop(hover_state.element, el, backdropFactory)
+      }
+      return
+    }
+
+    hover_state.element && hover_state.element.remove()
+    hover_state.label && hover_state.label.remove()
+
     hover_state.target = el
+    hover_state.kind = kind
 
     hover_state.element = no_hover
       ? null
-      : createHover(el)
+      : createHover(el, {kind, backdropFactory})
 
     hover_state.label   = no_label
       ? null
@@ -556,14 +604,37 @@ export function Selectable(visbug) {
   }
 
   const clearHover = () => {
-    if (!hover_state.target) return
+    if (!hover_state.target && !hover_state.containerTarget) return
 
     hover_state.element && hover_state.element.remove()
     hover_state.label && hover_state.label.remove()
+    hover_state.containerElement && hover_state.containerElement.remove()
+    hover_state.gapElements.forEach(el => el.remove())
 
     hover_state.target  = null
     hover_state.element = null
     hover_state.label   = null
+    hover_state.kind = null
+    hover_state.containerTarget = null
+    hover_state.containerElement = null
+    hover_state.gapTarget = null
+    hover_state.gapElements = []
+  }
+
+  const clearContainerHover = () => {
+    if (!hover_state.containerTarget) return
+
+    hover_state.containerElement && hover_state.containerElement.remove()
+    hover_state.containerTarget = null
+    hover_state.containerElement = null
+  }
+
+  const clearGapHover = () => {
+    if (!hover_state.gapTarget && !hover_state.gapElements.length) return
+
+    hover_state.gapElements.forEach(el => el.remove())
+    hover_state.gapTarget = null
+    hover_state.gapElements = []
   }
 
   const overlayMetaUI = ({el, id, no_label = true}) => {
@@ -656,18 +727,262 @@ export function Selectable(visbug) {
     }
   }
 
-  const createHover = el => {
+  const createHover = (el, {kind = 'default', backdropFactory = null} = {}) => {
     if (!el.hasAttribute('data-pseudo-select') && !el.hasAttribute('data-label-id')) {
-      if (hover_state.element)
-        hover_state.element.remove()
+      const hover = document.createElement('visbug-hover')
+      if (kind !== 'default')
+        hover.setAttribute('data-hover-kind', kind)
+      document.body.appendChild(hover)
+      hover.position = {el}
+      syncHoverBackdrop(hover, el, backdropFactory)
 
-      hover_state.element = document.createElement('visbug-hover')
-      document.body.appendChild(hover_state.element)
-      hover_state.element.position = {el}
-
-      return hover_state.element
+      return hover
     }
   }
+
+  const overlayContainerHoverUI = el => {
+    if (!el) {
+      clearContainerHover()
+      return
+    }
+
+    if (hover_state.containerTarget === el) {
+      if (hover_state.containerElement) {
+        hover_state.containerElement.position = {el}
+        syncHoverBackdrop(hover_state.containerElement, el, createSelectorContainerBackdrop)
+      }
+      return
+    }
+
+    clearContainerHover()
+    hover_state.containerTarget = el
+    hover_state.containerElement = createHover(el, {
+      kind: 'selector-container',
+      backdropFactory: createSelectorContainerBackdrop,
+    })
+  }
+
+  const overlayGapHoverUI = el => {
+    if (!el) {
+      clearGapHover()
+      return
+    }
+
+    if (hover_state.gapTarget === el) return
+
+    clearGapHover()
+
+    const rects = getGapRects(el)
+    if (!rects.length) return
+
+    hover_state.gapTarget = el
+    hover_state.gapElements = rects
+      .map(rect => createGapOverlay(rect, isFixed(el)))
+      .filter(Boolean)
+  }
+
+  const syncHoverBackdrop = (hover, el, backdropFactory) => {
+    if (!hover) return
+    if (!backdropFactory) return
+
+    const backdrop = backdropFactory(el)
+    if (!backdrop) return
+
+    hover.backdrop = {
+      element: backdrop,
+      update: backdropFactory,
+    }
+  }
+
+  const getHoverContainer = el => {
+    if (!el || !el.parentElement) return null
+
+    const sourceBounds = el.getBoundingClientRect()
+    let current = el.parentElement
+    let depth = 0
+
+    while (current && depth < 5) {
+      if (!isOffBounds(current) && !['BODY', 'HTML'].includes(current.nodeName)) {
+        const bounds = current.getBoundingClientRect()
+        const noticeablyLarger =
+          bounds.width >= sourceBounds.width + 8
+          || bounds.height >= sourceBounds.height + 8
+
+        const notTooLarge =
+          bounds.width <= window.innerWidth * 0.96
+          && bounds.height <= window.innerHeight * 0.96
+
+        if (noticeablyLarger && notTooLarge)
+          return current
+      }
+
+      current = current.parentElement
+      depth++
+    }
+
+    return null
+  }
+
+  const parsePx = value =>
+    Number.isFinite(parseFloat(value))
+      ? parseFloat(value)
+      : 0
+
+  const getContentBounds = el => {
+    const bounds = el.getBoundingClientRect()
+    const borders = expandBorders(getStyle(el, 'border-width') || '0')
+    const paddingTop = parsePx(getStyle(el, 'paddingTop'))
+    const paddingRight = parsePx(getStyle(el, 'paddingRight'))
+    const paddingBottom = parsePx(getStyle(el, 'paddingBottom'))
+    const paddingLeft = parsePx(getStyle(el, 'paddingLeft'))
+
+    return {
+      left: bounds.left + borders.left + paddingLeft,
+      right: bounds.right - borders.right - paddingRight,
+      top: bounds.top + borders.top + paddingTop,
+      bottom: bounds.bottom - borders.bottom - paddingBottom,
+    }
+  }
+
+  const groupRectsByAxis = (rects, axis = 'row', tolerance = 4) => {
+    const edge = axis === 'row' ? 'top' : 'left'
+    const sorted = [...rects].sort((a, b) => a[edge] - b[edge])
+
+    return sorted.reduce((groups, rect) => {
+      const prev = groups[groups.length - 1]
+      if (!prev || Math.abs(prev.anchor - rect[edge]) > tolerance) {
+        groups.push({
+          anchor: rect[edge],
+          rects: [rect],
+        })
+      } else {
+        prev.rects.push(rect)
+      }
+      return groups
+    }, [])
+  }
+
+  const getGapRects = el => {
+    if (!el || ['BODY', 'HTML'].includes(el.nodeName)) return []
+
+    const display = getStyle(el, 'display')
+    const rowGap = parsePx(getStyle(el, 'rowGap'))
+    const columnGap = parsePx(getStyle(el, 'columnGap'))
+    const isGapLayout = /flex|grid/.test(display)
+
+    if (!isGapLayout || (rowGap <= 0 && columnGap <= 0)) return []
+
+    const children = Array.from(el.children)
+      .filter(child => !isOffBounds(child))
+      .map(child => child.getBoundingClientRect())
+      .filter(rect => rect.width > 0 && rect.height > 0)
+
+    if (children.length < 2) return []
+
+    const content = getContentBounds(el)
+    const rects = []
+
+    if (rowGap > 0) {
+      const rows = groupRectsByAxis(children, 'row')
+      rows.sort((a, b) => a.anchor - b.anchor)
+
+      rows.slice(0, -1).forEach((row, index) => {
+        const nextRow = rows[index + 1]
+        const top = Math.max(...row.rects.map(rect => rect.bottom))
+        const bottom = Math.min(...nextRow.rects.map(rect => rect.top))
+        const height = bottom - top
+
+        if (height > 1) {
+          rects.push({
+            left: content.left,
+            top,
+            width: Math.max(0, content.right - content.left),
+            height,
+          })
+        }
+      })
+    }
+
+    if (columnGap > 0) {
+      const cols = groupRectsByAxis(children, 'column')
+      cols.sort((a, b) => a.anchor - b.anchor)
+
+      cols.slice(0, -1).forEach((col, index) => {
+        const nextCol = cols[index + 1]
+        const left = Math.max(...col.rects.map(rect => rect.right))
+        const right = Math.min(...nextCol.rects.map(rect => rect.left))
+        const width = right - left
+
+        if (width > 1) {
+          rects.push({
+            left,
+            top: content.top,
+            width,
+            height: Math.max(0, content.bottom - content.top),
+          })
+        }
+      })
+    }
+
+    return rects
+      .filter(rect => rect.width > 1 && rect.height > 1)
+  }
+
+  const getGapHost = el => {
+    let current = el
+    let depth = 0
+
+    while (current && depth < 6) {
+      if (!isOffBounds(current) && getGapRects(current).length)
+        return current
+
+      current = current.parentElement
+      depth++
+    }
+
+    return null
+  }
+
+  const createGapOverlay = ({left, top, width, height}, fixed = false) => {
+    if (width <= 1 || height <= 1) return null
+
+    const overlay = document.createElement('div')
+    overlay.setAttribute('data-visbug-gap-overlay', '')
+    overlay.style.cssText = `
+      position: ${fixed ? 'fixed' : 'absolute'};
+      left: ${left}px;
+      top: ${top + (fixed ? 0 : window.scrollY)}px;
+      width: ${width}px;
+      height: ${height}px;
+      pointer-events: none;
+      z-index: 2147483643;
+      box-sizing: border-box;
+      border: 1px dashed hsl(270 100% 58% / 95%);
+      background:
+        repeating-linear-gradient(
+          45deg,
+          hsl(270 100% 58% / 0.45) 0 2px,
+          transparent 2px 12px
+        ),
+        hsl(255 100% 76% / 0.18);
+    `
+    document.body.appendChild(overlay)
+    return overlay
+  }
+
+  const hasVisiblePadding = el =>
+    ['Top', 'Right', 'Bottom', 'Left']
+      .some(side => parseFloat(getStyle(el, `padding${side}`)) > 0)
+
+  const createSelectorTargetBackdrop = el =>
+    hasVisiblePadding(el)
+      ? createPaddingVisual(el, true)
+      : null
+
+  const createSelectorContainerBackdrop = el =>
+    hasVisiblePadding(el)
+      ? createPaddingVisual(el, true)
+      : null
 
   const createHoverLabel = (el, text) => {
     if (!el.hasAttribute('data-pseudo-select') && !el.hasAttribute('data-label-id')) {
@@ -789,6 +1104,9 @@ export const handleLabelText = (el, activeTool) => {
   switch(activeTool) {
     case 'align':
       return getStyle(el, 'display')
+
+    case 'selector':
+      return `<a node>${generateFullSelector(el)}</a>`
 
     default:
       return `

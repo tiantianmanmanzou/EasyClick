@@ -9,7 +9,7 @@ import {
 import {
   Selectable, Moveable, Padding, Margin, EditText, Font,
   Flex, Search, ColorPicker, BoxShadow, HueShift, MetaTip,
-  Guides, Screenshot, Position, Accessibility, draggable
+  Guides, Screenshot, Position, Accessibility, Selector, draggable
 } from '../../features/'
 
 import {
@@ -23,6 +23,9 @@ import * as Icons                 from './vis-bug.icons'
 import { provideSelectorEngine }  from '../../features/search'
 import { PluginRegistry }         from '../../plugins/_registry'
 import {
+  SELECTOR_FIELDS, selectorConfig, setSelectorField
+} from '../../features/selector'
+import {
   metaKey,
   isPolyfilledCE,
   constructibleStylesheetSupport,
@@ -35,6 +38,7 @@ export default class VisBug extends HTMLElement {
 
     this.toolbar_model  = VisBugModel
     this.$shadow        = this.attachShadow({mode: 'closed'})
+    this.toolbarPositionStorageKey = 'visbug_toolbar_position'
     this.applyScheme    = schemeRule(
       this.$shadow,
       VisBugStyles, VisBugLightStyles, VisBugDarkStyles
@@ -42,20 +46,61 @@ export default class VisBug extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['color-scheme']
+    return ['color-scheme', 'tutsbaseurl']
   }
 
   connectedCallback() {
     this._tutsBaseURL = this.getAttribute('tutsBaseURL') || 'tuts'
 
     this.setup()
+    this.restoreToolbarPosition()
 
     this.selectorEngine = Selectable(this)
     this.colorPicker    = ColorPicker(this.$shadow, this.selectorEngine)
 
     provideSelectorEngine(this.selectorEngine)
 
-    this.toolSelected($('[data-tool="guides"]', this.$shadow)[0])
+    let savedTool = null
+    let savedCollapsed = null
+    let savedVisible = null
+    try {
+      savedTool = localStorage.getItem('visbug_active_tool')
+      savedCollapsed = localStorage.getItem('visbug_collapsed')
+      savedVisible = localStorage.getItem('visbug_visible')
+    } catch(e) {}
+
+    // 默认是折叠状态
+    if (savedCollapsed === 'false') {
+      this.removeAttribute('collapsed')
+    } else {
+      this.setAttribute('collapsed', '')
+    }
+
+    if (savedCollapsed === null) {
+      try {
+        localStorage.setItem('visbug_collapsed', 'true')
+      } catch(e) {}
+    }
+
+    // 初始化显示状态
+    if (savedVisible === 'false') {
+      this.style.display = 'none'
+      this.reportToolbarVisibility(false)
+    } else {
+      this.style.display = 'block'
+      this.reportToolbarVisibility(true)
+    }
+
+    if (savedTool && savedTool !== 'null') {
+      const toolEl = $(`[data-tool="${savedTool}"]`, this.$shadow)[0]
+      if (toolEl) {
+        this.toolSelected(toolEl)
+      } else {
+        this.toolSelected($('[data-tool="selector"]', this.$shadow)[0])
+      }
+    } else if (savedTool === null) {
+      this.toolSelected($('[data-tool="selector"]', this.$shadow)[0])
+    }
   }
 
   disconnectedCallback() {
@@ -71,6 +116,8 @@ export default class VisBug extends HTMLElement {
   attributeChangedCallback(name, oldValue, newValue) {
     if (name === 'color-scheme')
       this.applyScheme(newValue)
+    else if (name.toLowerCase() === 'tutsbaseurl')
+      this.updateTutorialBase(newValue || 'tuts')
   }
 
   setup() {
@@ -87,22 +134,14 @@ export default class VisBug extends HTMLElement {
     this.setAttribute('popover', 'manual')
     this.showPopover && this.showPopover()
 
-    const main_ol = this.$shadow.querySelector('ol:not([colors])')
-    const buttonPieces = $('li[data-tool], li[data-tool] *', main_ol)
+    const main_ol = this.$shadow.querySelector('ol.toolbar')
+    const toolButtons = this.$shadow.querySelectorAll('li[data-tool]')
 
-    const clickEvent = (e) => {
-      const target = e.currentTarget || e.target
-      const toolButton = target.closest('[data-tool]')
-      if (toolButton) this.toolSelected(toolButton) && e.stopPropagation();
-    }
-
-    Array.from(buttonPieces)
-    .forEach(toolButton => {
-      draggable({
-        el:this,
-        surface: toolButton,
-        cursor: 'pointer',
-        clickEvent: clickEvent
+    toolButtons.forEach(toolButton => {
+      if (['toggle-collapse', 'toggle-preview'].includes(toolButton.dataset.tool)) return
+      toolButton.addEventListener('click', e => {
+        e.stopPropagation()
+        this.toolSelected(toolButton)
       })
     })
 
@@ -110,6 +149,7 @@ export default class VisBug extends HTMLElement {
       el:this,
       surface: main_ol,
       cursor: 'grab',
+      dragEndEvent: ({x, y}) => this.persistToolbarPosition({x, y}),
     })
 
     Object.entries(this.toolbar_model).forEach(([key, value]) =>
@@ -122,10 +162,77 @@ export default class VisBug extends HTMLElement {
     )
 
     hotkeys(`${metaKey}+/,${metaKey}+.`, e =>
-      this.$shadow.host.style.display =
-        this.$shadow.host.style.display === 'none'
-          ? 'block'
-          : 'none')
+      this.toggleToolbarVisibility())
+
+    this.setupSelectorConfig()
+
+    // Collapse/expand toggle button.
+    const toggleBtn = $('[data-tool="toggle-collapse"]', this.$shadow)[0]
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', e => {
+        e.stopPropagation()
+        this.toggleCollapsed()
+      })
+    }
+
+    const previewToggleBtn = $('[data-tool="toggle-preview"]', this.$shadow)[0]
+    if (previewToggleBtn) {
+      previewToggleBtn.addEventListener('click', e => {
+        e.stopPropagation()
+        this.togglePreview()
+      })
+      this.updatePreviewToggleButton(previewToggleBtn)
+    }
+  }
+
+  // Wire up the Copy Selector preview checkboxes.
+  setupSelectorConfig() {
+    const boxes = this.$shadow.querySelectorAll('[data-selector-config] input[type="checkbox"]')
+    boxes.forEach(box => {
+      box.addEventListener('change', e => {
+        e.stopPropagation()
+        e.preventDefault()
+        setSelectorField(box.dataset.field, box.checked)
+      })
+      // Stop toolbar drag/click handlers from firing when interacting here.
+      box.addEventListener('mousedown', e => e.stopPropagation())
+      box.addEventListener('click', e => e.stopPropagation())
+    })
+  }
+
+  updateTutorialBase(baseURL = 'tuts') {
+    this._tutsBaseURL = baseURL
+
+    this.$shadow.querySelectorAll('li[data-tool] > aside img').forEach(img => {
+      const li = img.closest('li[data-tool]')
+      if (!li || !li.dataset.tool) return
+      img.src = `${baseURL}/${li.dataset.tool}.gif`
+    })
+  }
+
+  restoreToolbarPosition() {
+    try {
+      const saved = localStorage.getItem(this.toolbarPositionStorageKey)
+      if (!saved) return
+
+      const { x, y } = JSON.parse(saved)
+      if (Number.isFinite(x)) this.style.left = `${x}px`
+      if (Number.isFinite(y)) this.style.top = `${y}px`
+    } catch (e) {}
+  }
+
+  persistToolbarPosition({x, y} = {}) {
+    try {
+      const nextX = Number.isFinite(x) ? x : parseInt(this.style.left, 10) || 0
+      const nextY = Number.isFinite(y) ? y : parseInt(this.style.top, 10) || 0
+
+      this.style.left = `${nextX}px`
+      this.style.top = `${nextY}px`
+      localStorage.setItem(this.toolbarPositionStorageKey, JSON.stringify({
+        x: nextX,
+        y: nextY,
+      }))
+    } catch (e) {}
   }
 
   cleanup() {
@@ -146,31 +253,114 @@ export default class VisBug extends HTMLElement {
     if (typeof el === 'string')
       el = $(`[data-tool="${el}"]`, this.$shadow)[0]
 
-    if (this.active_tool && this.active_tool.dataset.tool === el.dataset.tool) return
+    this.$shadow.querySelectorAll('li[data-tool][data-active="true"]')
+      .forEach(toolButton => {
+        if (toolButton !== el)
+          toolButton.setAttribute('data-active', 'false')
+      })
 
-    if (this.active_tool) {
-      this.active_tool.attr('data-active', null)
-      this.deactivate_feature()
+    // Second activation of the active tool deselects it (toggles off).
+    if (this.active_tool && this.active_tool.dataset.tool === el.dataset.tool) {
+      this.deselectTool()
+      try {
+        localStorage.setItem('visbug_active_tool', null)
+      } catch(e) {}
+      return
     }
 
-    el.attr('data-active', true)
+    if (this.active_tool) {
+      this.active_tool.setAttribute('data-active', 'false')
+      if (this.deactivate_feature) this.deactivate_feature()
+    }
+
+    el.setAttribute('data-active', 'true')
     this.active_tool = el
     this[el.dataset.tool]()
+    try {
+      localStorage.setItem('visbug_active_tool', el.dataset.tool)
+    } catch(e) {}
+  }
+
+  // Deselect the active tool, deactivating its feature.
+  deselectTool() {
+    if (!this.active_tool) return
+    this.active_tool.setAttribute('data-active', 'false')
+    if (this.deactivate_feature) this.deactivate_feature()
+    this.active_tool = null
+    try {
+      localStorage.setItem('visbug_active_tool', null)
+    } catch(e) {}
+  }
+
+  // Collapse / expand the toolbar. Collapsed shows only the first button.
+  toggleCollapsed(force) {
+    const next = typeof force === 'boolean' ? force : !this.hasAttribute('collapsed')
+    next
+      ? this.setAttribute('collapsed', '')
+      : this.removeAttribute('collapsed')
+    try {
+      localStorage.setItem('visbug_collapsed', next ? 'true' : 'false')
+    } catch(e) {}
+  }
+
+  togglePreview(force) {
+    const next = typeof force === 'boolean' ? force : !this.hasAttribute('preview-open')
+    next
+      ? this.setAttribute('preview-open', '')
+      : this.removeAttribute('preview-open')
+    this.updatePreviewToggleButton()
+  }
+
+  updatePreviewToggleButton(button = $('[data-tool="toggle-preview"]', this.$shadow)[0]) {
+    if (!button) return
+    const open = this.hasAttribute('preview-open')
+    button.innerHTML = open ? Icons.preview_close : Icons.preview_open
+    button.setAttribute(
+      'aria-label',
+      open ? 'Collapse previews' : 'Expand previews'
+    )
+    button.setAttribute(
+      'aria-description',
+      open
+        ? 'Hide the right-side tool preview panel'
+        : 'Show the right-side tool preview panel'
+    )
+  }
+
+  toggleToolbarVisibility() {
+    const visible = this.$shadow.host.style.display === 'none'
+    this.$shadow.host.style.display = visible ? 'block' : 'none'
+    try {
+      localStorage.setItem('visbug_visible', visible ? 'true' : 'false')
+    } catch(e) {}
+    this.reportToolbarVisibility(visible)
+  }
+
+  reportToolbarVisibility(visible) {
+    try {
+      const platform = typeof browser === 'undefined'
+        ? (typeof chrome === 'undefined' ? null : chrome)
+        : browser
+      if (platform && platform.runtime && platform.runtime.sendMessage) {
+        platform.runtime.sendMessage({
+          action: 'TOOLBAR_VISIBILITY_STATE',
+          visible,
+        }).catch(() => {})
+      }
+    } catch (e) {}
   }
 
   render() {
     return `
       <visbug-hotkeys></visbug-hotkeys>
-      <ol constructible-support="${constructibleStylesheetSupport ? 'false':'true'}">
+      <ol class="toolbar" constructible-support="${constructibleStylesheetSupport ? 'false':'true'}">
         ${Object.entries(this.toolbar_model).reduce((list, [key, tool]) => `
           ${list}
-          <li aria-label="${tool.label} Tool" aria-description="${tool.description}" aria-hotkey="${key}" data-tool="${tool.tool}" data-active="${key == 'g'}">
+          <li aria-label="${tool.label} Tool" aria-description="${tool.description}" aria-hotkey="${key}" data-tool="${tool.tool}" data-active="false">
             ${tool.icon}
             ${this.demoTip({key, ...tool})}
           </li>
         `,'')}
-      </ol>
-      <ol colors>
         <li class="color" id="foreground" aria-label="Text" aria-description="Change the text color">
           <input type="color">
           ${Icons.color_text}
@@ -182,6 +372,12 @@ export default class VisBug extends HTMLElement {
         <li class="color" id="border" aria-label="Border or Stroke" aria-description="Change the border color or stroke of svg">
           <input type="color">
           ${Icons.color_border}
+        </li>
+        <li data-tool="toggle-preview" aria-label="Expand previews" aria-description="Show the right-side tool preview panel">
+          ${Icons.preview_open}
+        </li>
+        <li data-tool="toggle-collapse" aria-label="Collapse/Expand toolbar" aria-description="Show or hide all tools">
+          ${Icons.collapse}
         </li>
       </ol>
     `
@@ -198,10 +394,25 @@ export default class VisBug extends HTMLElement {
               <span hotkey>${key}</span>
             </h2>
             <p>${description}</p>
-            ${instruction}
+            ${tool === 'selector' ? this.selectorConfigUI() : instruction}
           </figcaption>
         </figure>
       </aside>
+    `
+  }
+
+  // Checkbox UI for choosing which context-block fields get copied.
+  selectorConfigUI() {
+    return `
+      <fieldset data-selector-config>
+        <legend>复制到剪贴板的内容</legend>
+        ${SELECTOR_FIELDS.map(f => `
+          <label>
+            <input type="checkbox" data-field="${f.key}" ${selectorConfig[f.key] ? 'checked' : ''}>
+            <span>${f.label}</span>
+          </label>
+        `).join('')}
+      </fieldset>
     `
   }
 
@@ -258,6 +469,10 @@ export default class VisBug extends HTMLElement {
     this.deactivate_feature = Guides(this.selectorEngine)
   }
 
+  selector() {
+    this.deactivate_feature = Selector(this.selectorEngine)
+  }
+
   screenshot() {
     this.deactivate_feature = Screenshot()
   }
@@ -284,7 +499,7 @@ export default class VisBug extends HTMLElement {
   }
 
   get activeTool() {
-    return this.active_tool.dataset.tool
+    return this.active_tool ? this.active_tool.dataset.tool : null
   }
 }
 

@@ -43,7 +43,7 @@ export function Position() {
   }
 }
 
-export function draggable({el, surface = el, cursor = 'move', clickEvent}) {
+export function draggable({el, surface = el, cursor = 'move', clickEvent, dragEndEvent}) {
    const state = {
     target: el,
     surface,
@@ -132,6 +132,10 @@ export function draggable({el, surface = el, cursor = 'move', clickEvent}) {
 
     const treatAsClick = !state.travelDistance || state.travelDistance < 5
     if (clickEvent && treatAsClick) clickEvent(e);
+    if (dragEndEvent && !treatAsClick) dragEndEvent({
+      x: state.element.x,
+      y: state.element.y,
+    })
     state.travelDistance = 0 // reset after
   }
 

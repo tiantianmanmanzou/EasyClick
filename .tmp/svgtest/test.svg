@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280">
+  <rect width="440" height="280" fill="#f4f7fb"/>
+  <text x="40" y="70" font-family="Helvetica, Arial, sans-serif" font-size="34" font-weight="700" fill="#1b2b4b">EasyClick</text>
+  <image href="/Users/zhangxy/GenAI/VisBug/extension/icons/visbug.png" x="280" y="40" width="120" height="120"/>
+</svg>

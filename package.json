@@ -28,7 +28,7 @@
     "extension:js": "npm run bundle:prod",
     "extension:css": "postcss app/extension.css -o extension/toolbar/bundle.css",
     "extension:copy": "cp app/bundle.min.js extension/toolbar/ && cp -R app/tuts/ extension/tuts",
-    "extension:zip": "rm -rf ./extension/build/* && mkdir ./visbug_v$npm_package_version && cp -R ./extension/* ./visbug_v$npm_package_version/ && zip -r ./extension/build/visbug.zip ./visbug_v$npm_package_version/ && rm -rf ./visbug_v$npm_package_version",
+    "extension:zip": "rm -rf ./extension/build/* && mkdir -p ./extension/build/upload && cp -R ./extension/contextmenu ./extension/icons ./extension/toolbar ./extension/tuts ./extension/manifest.json ./extension/visbug.js ./extension/build/upload/ && find ./extension/build/upload -name '.DS_Store' -delete && cd ./extension/build/upload && zip -r ../EasyClick-$npm_package_version.zip . && cd /Users/zhangxy/GenAI/VisBug && rm -rf ./extension/build/upload",
     "extension:firefox": "npm run dev:extension && cd extension && web-ext run",
     "extension:firefox-build": "npm run extension:build && cd extension && web-ext build",
     "deploy": "gcloud app deploy --project=visbug-1337",

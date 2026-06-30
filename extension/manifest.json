@@ -1,23 +1,36 @@
 {
-  "name": "DevBug",
+  "name": "EasyClick",
+  "short_name": "EasyClick",
   "version": "0.4.9",
   "description": "Open source browser design tools",
   "manifest_version": 3,
-  "icons": { "128": "icons/visbug-dev.png" },
+  "icons": {
+    "16": "icons/visbug-16.png",
+    "32": "icons/visbug-32.png",
+    "48": "icons/visbug-48.png",
+    "128": "icons/visbug-128.png"
+  },
   "permissions": [
     "activeTab",
     "contextMenus",
     "scripting",
-    "storage"
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "visbug.js",
     "type": "module"
   },
   "action": {
-    "default_title": "Click or press Alt+Shift+D to launch VisBug",
+    "default_title": "Click or press shortcut key to launch EasyClick",
     "default_icon": {
-      "128": "icons/visbug.png"
+      "16": "icons/visbug-16.png",
+      "32": "icons/visbug-32.png",
+      "48": "icons/visbug-48.png",
+      "128": "icons/visbug-128.png"
     }
   },
   "web_accessible_resources": [{

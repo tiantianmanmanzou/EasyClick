@@ -1,14 +1,46 @@
 @import "../_variables.css";
 
-:host rect {
+:host {
+  --hover-fill: transparent;
+  --hover-stroke: var(--neon-purple, hsl(267 100% 58%));
+  --hover-stroke-width: 2px;
+  --hover-dash: none;
+}
+
+:host .hover-fill,
+:host .hover-outline {
   width: 100%;
   height: 100%;
   vector-effect: non-scaling-stroke;
-  stroke: var(--hover-stroke, var(--neon-purple, hsl(267 100% 58%)));
-  stroke-width: 2px;
+}
+
+:host .hover-fill {
+  fill: var(--hover-fill);
+  stroke: none;
+}
+
+:host .hover-outline {
+  stroke: var(--hover-stroke);
+  stroke-width: var(--hover-stroke-width);
+  stroke-dasharray: var(--hover-dash);
   fill: none;
 }
 
 :host > svg {
   z-index: var(--layer-5);
+}
+
+:host([data-hover-kind="selector-target"]) {
+  z-index: var(--layer-4);
+  --hover-fill: hsl(210 95% 72% / 38%);
+  --hover-stroke: hsl(270 100% 58% / 96%);
+  --hover-stroke-width: 2px;
+  --hover-dash: 6 4;
+}
+
+:host([data-hover-kind="selector-container"]) {
+  z-index: var(--layer-3);
+  --hover-fill: hsl(96 45% 72% / 22%);
+  --hover-stroke: hsl(108 38% 62% / 85%);
+  --hover-stroke-width: 2px;
 }

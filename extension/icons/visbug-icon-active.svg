@@ -1,0 +1,17 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="256" cy="398" rx="178" ry="32" fill="#052E16" opacity="0.24"/>
+  <ellipse cx="250" cy="300" rx="214" ry="154" fill="#22C55E"/>
+  <ellipse cx="250" cy="284" rx="212" ry="154" fill="#FFFFFF"/>
+  <ellipse cx="250" cy="264" rx="206" ry="160" fill="#F8FAFC"/>
+  <ellipse cx="250" cy="264" rx="178" ry="136" fill="#51D16E"/>
+  <ellipse cx="250" cy="264" rx="140" ry="104" fill="#F8FAFC"/>
+  <ellipse cx="250" cy="264" rx="110" ry="80" fill="#51D16E"/>
+  <ellipse cx="250" cy="264" rx="74" ry="54" fill="#F8FAFC"/>
+  <ellipse cx="250" cy="264" rx="44" ry="32" fill="#51D16E"/>
+  <ellipse cx="198" cy="214" rx="108" ry="34" fill="#FFFFFF" opacity="0.2"/>
+  <polygon points="337,126 359,148 285,228 264,208" fill="#22C55E"/>
+  <polygon points="250,260 269,192 322,242" fill="#22C55E"/>
+  <polygon points="337,126 346,84 378,118 352,142" fill="#8BE28F"/>
+  <polygon points="359,148 402,140 382,164 374,158" fill="#3BA34A"/>
+  <polygon points="341,135 353,147 279,225 267,213" fill="#14532D"/>
+</svg>
