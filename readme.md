@@ -3,7 +3,7 @@
 > Browser extension adapted from the original ProjectVisBug repository
 
 EasyClick is a standalone plugin project derived from
-[GoogleChromeLabs/ProjectVisBug](https://github.com/GoogleChromeLabs/ProjectVisBug).
+[tiantianmanmanzou/EasyClick](https://github.com/tiantianmanmanzou/EasyClick).
 This repository contains my customized changes and is maintained as an
 independent project under the name `EasyClick`.
 
@@ -33,9 +33,9 @@ independent project under the name `EasyClick`.
 <br>
 <br>
 
-Check out the [list of features me and other's are wishing for](https://github.com/GoogleChromeLabs/ProjectVisBug/issues?q=is%3Aopen+is%3Aissue+label%3A"⚡️+feature"). There's a lot of fun stuff planned or in demand. Cast your vote on a feature, leave some feedback or add clarity.
+Check out the [list of features me and other's are wishing for](https://github.com/tiantianmanmanzou/EasyClick/issues?q=is%3Aopen+is%3Aissue+label%3A"⚡️+feature"). There's a lot of fun stuff planned or in demand. Cast your vote on a feature, leave some feedback or add clarity.
 
-Let's do this **design community, I'm looking at you!** Make a GitHub account and start dreamin' in the [issues area!](https://github.com/GoogleChromeLabs/ProjectVisBug/issues) **Help create the tool you need to do your job better.**
+Let's do this **design community, I'm looking at you!** Make a GitHub account and start dreamin' in the [issues area!](https://github.com/tiantianmanmanzou/EasyClick/issues) **Help create the tool you need to do your job better.**
 
 ## 🤔 **It's not:**
 
@@ -62,9 +62,9 @@ Let's do this **design community, I'm looking at you!** Make a GitHub account an
 This project is adapted from the original ProjectVisBug codebase. Please refer
 to the upstream repository for historical background and older documentation:
 
-- [ProjectVisBug Repository](https://github.com/GoogleChromeLabs/ProjectVisBug)
-- [ProjectVisBug Wiki](https://github.com/GoogleChromeLabs/ProjectVisBug/wiki)
-- [Master List of Keyboard Commands](https://github.com/GoogleChromeLabs/ProjectVisBug/wiki/Keyboard-Master-List)
+- [EasyClick Repository](https://github.com/tiantianmanmanzou/EasyClick)
+- [EasyClick Repository Home](https://github.com/tiantianmanmanzou/EasyClick)
+- [EasyClick Repository Reference](https://github.com/tiantianmanmanzou/EasyClick)
 
 ### Web Component (coming soon 💀🤘)
 
@@ -80,8 +80,8 @@ Questions or need help building a feature, come [chat on Gitter](https://gitter.
 
 ### Reporting Issues
 
-Found a problem? Want a new feature? First of all see if your issue or idea has [already been reported](../../issues).
-If it hasn't, just open a [new clear and descriptive issue](../../issues/new).
+Found a problem? Want a new feature? First of all see if your issue or idea has [already been reported](https://github.com/tiantianmanmanzou/EasyClick/issues).
+If it hasn't, just open a [new clear and descriptive issue](https://github.com/tiantianmanmanzou/EasyClick/issues/new).
 
 ### Submitting pull requests
 
