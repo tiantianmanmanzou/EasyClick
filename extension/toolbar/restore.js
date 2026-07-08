@@ -4,7 +4,7 @@
     : browser
   const VIS_KEY = 'visbug_visible'
   const readVisible = () => {
-    try { return localStorage.getItem(VIS_KEY) !== 'false' } catch (e) { return true }
+    try { return localStorage.getItem(VIS_KEY) === 'true' } catch (e) { return false }
   }
 
   const src_path = platform.runtime.getURL(`tuts/guides.gif`)

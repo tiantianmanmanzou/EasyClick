@@ -33,11 +33,20 @@ export const SELECTOR_FIELDS = [
   { key: 'errors',   label: 'Console errors',                 default: true },
 ]
 
+export const SELECTOR_OPTIONS = [
+  {
+    key: 'autoExitAfterCopy',
+    label: '左键复制后自动取消选中 Copy Selector',
+    default: true,
+  },
+]
+
 const STORAGE_KEY = 'visbug_selector_config'
 
 const loadConfig = () => {
   const defaults = {}
   SELECTOR_FIELDS.forEach(f => defaults[f.key] = f.default)
+  SELECTOR_OPTIONS.forEach(f => defaults[f.key] = f.default)
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) return Object.assign(defaults, JSON.parse(saved))
@@ -237,7 +246,7 @@ const toast = () => {
   return host
 }
 
-export function Selector(visbug) {
+export function Selector(visbug, toolbar) {
   const $toast = toast()
   let toast_timer
   let appended = false
@@ -316,8 +325,19 @@ export function Selector(visbug) {
       ? `✓ 已复制${errCount ? ` (${errCount} errors)` : ''}`
       : '复制失败 — 请允许剪贴板访问')
 
+    if (!ok) return
+
+    if (selectorConfig.autoExitAfterCopy) {
+      clearTimeout(clear_timer)
+      if (typeof visbug.unselect_all === 'function')
+        visbug.unselect_all()
+      if (toolbar && typeof toolbar.deselectTool === 'function')
+        toolbar.deselectTool()
+      return
+    }
+
     // Hide the selected element's info shortly after copying.
-    if (ok) clearSelectionSoon(1200)
+    clearSelectionSoon(1200)
   }
 
   setCursorLock(true)

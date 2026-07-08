@@ -157,3 +157,9 @@ export const preview_close = `
     <path d="M15 5l1.41 1.41L10.83 12l5.58 5.59L15 19l-7-7 7-7z"/>
   </svg>
 `
+
+export const hide_toolbar = `
+  <svg viewBox="0 0 24 24">
+    <path d="M4 5h2v14H4zM18.59 7.41 17.17 6 11.17 12l6 6 1.42-1.41L14 12z"/>
+  </svg>
+`

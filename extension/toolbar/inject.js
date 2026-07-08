@@ -29,7 +29,10 @@ try {
   // truth for "should the toolbar be shown".
   const VIS_KEY = 'visbug_visible'
   const readVisible = () => {
-    try { return localStorage.getItem(VIS_KEY) !== 'false' } catch (e) { return true }
+    try {
+      const saved = localStorage.getItem(VIS_KEY)
+      return saved === 'true'
+    } catch (e) { return false }
   }
   const writeVisible = v => {
     try { localStorage.setItem(VIS_KEY, v ? 'true' : 'false') } catch (e) {}
@@ -60,8 +63,11 @@ try {
   }
 
   // Restore the previously saved state on every inject (refresh auto-reinject
-  // AND manual launch alike).
-  applyVisible(readVisible())
+  // AND manual launch alike). If there is no saved state yet, default to
+  // hidden and persist that default.
+  const initialVisible = readVisible()
+  writeVisible(initialVisible)
+  applyVisible(initialVisible)
 
   // Always operate on the current <vis-bug> in the page so restore/re-inject
   // paths keep a single toolbar instance in sync.

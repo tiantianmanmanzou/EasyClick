@@ -135,6 +135,7 @@
     direction: ltr;
     text-align: left;
     left: 3em;
+    right: auto;
     top: 0;
     max-height: calc(100vh - 2em);
     z-index: 2;
@@ -219,6 +220,12 @@
   & input::-webkit-calendar-picker-indicator {
     background: inherit;
     color: var(--neon-pink);
+  }
+
+  :host([preview-side="left"]) & > aside {
+    left: auto;
+    right: 3em;
+    transform: translateX(1em);
   }
 }
 
@@ -364,7 +371,7 @@
   pointer-events: none;
 }
 
-:host [data-selector-config] {
+:host [data-selector-checkbox] {
   pointer-events: auto;
   border: 1px solid var(--theme-icon_color);
   border-radius: .5em;

@@ -23,7 +23,7 @@ import * as Icons                 from './vis-bug.icons'
 import { provideSelectorEngine }  from '../../features/search'
 import { PluginRegistry }         from '../../plugins/_registry'
 import {
-  SELECTOR_FIELDS, selectorConfig, setSelectorField
+  SELECTOR_FIELDS, SELECTOR_OPTIONS, selectorConfig, setSelectorField
 } from '../../features/selector'
 import {
   metaKey,
@@ -39,6 +39,7 @@ export default class VisBug extends HTMLElement {
     this.toolbar_model  = VisBugModel
     this.$shadow        = this.attachShadow({mode: 'closed'})
     this.toolbarPositionStorageKey = 'visbug_toolbar_position'
+    this.handleViewportChange = () => this.updatePreviewSide()
     this.applyScheme    = schemeRule(
       this.$shadow,
       VisBugStyles, VisBugLightStyles, VisBugDarkStyles
@@ -54,6 +55,8 @@ export default class VisBug extends HTMLElement {
 
     this.setup()
     this.restoreToolbarPosition()
+    this.updatePreviewSide()
+    window.addEventListener('resize', this.handleViewportChange)
 
     this.selectorEngine = Selectable(this)
     this.colorPicker    = ColorPicker(this.$shadow, this.selectorEngine)
@@ -83,12 +86,17 @@ export default class VisBug extends HTMLElement {
     }
 
     // 初始化显示状态
-    if (savedVisible === 'false') {
-      this.style.display = 'none'
-      this.reportToolbarVisibility(false)
-    } else {
+    if (savedVisible === 'true') {
       this.style.display = 'block'
       this.reportToolbarVisibility(true)
+    } else {
+      this.style.display = 'none'
+      this.reportToolbarVisibility(false)
+      if (savedVisible === null) {
+        try {
+          localStorage.setItem('visbug_visible', 'false')
+        } catch(e) {}
+      }
     }
 
     if (savedTool && savedTool !== 'null') {
@@ -107,6 +115,7 @@ export default class VisBug extends HTMLElement {
     this.deactivate_feature()
     this.cleanup()
     this.selectorEngine.disconnect()
+    window.removeEventListener('resize', this.handleViewportChange)
     hotkeys.unbind(
       Object.keys(this.toolbar_model).reduce((events, key) =>
         events += ',' + key, ''))
@@ -138,7 +147,7 @@ export default class VisBug extends HTMLElement {
     const toolButtons = this.$shadow.querySelectorAll('li[data-tool]')
 
     toolButtons.forEach(toolButton => {
-      if (['toggle-collapse', 'toggle-preview'].includes(toolButton.dataset.tool)) return
+      if (['toggle-collapse', 'toggle-preview', 'toggle-visibility'].includes(toolButton.dataset.tool)) return
       toolButton.addEventListener('click', e => {
         e.stopPropagation()
         this.toolSelected(toolButton)
@@ -149,7 +158,10 @@ export default class VisBug extends HTMLElement {
       el:this,
       surface: main_ol,
       cursor: 'grab',
-      dragEndEvent: ({x, y}) => this.persistToolbarPosition({x, y}),
+      dragEndEvent: ({x, y}) => {
+        this.persistToolbarPosition({x, y})
+        this.updatePreviewSide()
+      },
     })
 
     Object.entries(this.toolbar_model).forEach(([key, value]) =>
@@ -183,11 +195,19 @@ export default class VisBug extends HTMLElement {
       })
       this.updatePreviewToggleButton(previewToggleBtn)
     }
+
+    const visibilityToggleBtn = $('[data-tool="toggle-visibility"]', this.$shadow)[0]
+    if (visibilityToggleBtn) {
+      visibilityToggleBtn.addEventListener('click', e => {
+        e.stopPropagation()
+        this.toggleToolbarVisibility()
+      })
+    }
   }
 
   // Wire up the Copy Selector preview checkboxes.
   setupSelectorConfig() {
-    const boxes = this.$shadow.querySelectorAll('[data-selector-config] input[type="checkbox"]')
+    const boxes = this.$shadow.querySelectorAll('[data-selector-checkbox] input[type="checkbox"]')
     boxes.forEach(box => {
       box.addEventListener('change', e => {
         e.stopPropagation()
@@ -219,6 +239,16 @@ export default class VisBug extends HTMLElement {
       if (Number.isFinite(x)) this.style.left = `${x}px`
       if (Number.isFinite(y)) this.style.top = `${y}px`
     } catch (e) {}
+  }
+
+  updatePreviewSide() {
+    const rect = this.getBoundingClientRect()
+    if (!rect.width || !window.innerWidth) return
+
+    const toolbarCenter = rect.left + rect.width / 2
+    const viewportCenter = window.innerWidth / 2
+    const side = toolbarCenter >= viewportCenter ? 'left' : 'right'
+    this.setAttribute('preview-side', side)
   }
 
   persistToolbarPosition({x, y} = {}) {
@@ -379,6 +409,9 @@ export default class VisBug extends HTMLElement {
         <li data-tool="toggle-collapse" aria-label="Collapse/Expand toolbar" aria-description="Show or hide all tools">
           ${Icons.collapse}
         </li>
+        <li data-tool="toggle-visibility" aria-label="Hide toolbar" aria-description="Hide the EasyClick toolbar">
+          ${Icons.hide_toolbar}
+        </li>
       </ol>
     `
   }
@@ -404,9 +437,18 @@ export default class VisBug extends HTMLElement {
   // Checkbox UI for choosing which context-block fields get copied.
   selectorConfigUI() {
     return `
-      <fieldset data-selector-config>
+      <fieldset data-selector-checkbox>
         <legend>复制到剪贴板的内容</legend>
         ${SELECTOR_FIELDS.map(f => `
+          <label>
+            <input type="checkbox" data-field="${f.key}" ${selectorConfig[f.key] ? 'checked' : ''}>
+            <span>${f.label}</span>
+          </label>
+        `).join('')}
+      </fieldset>
+      <fieldset data-selector-checkbox>
+        <legend>配置</legend>
+        ${SELECTOR_OPTIONS.map(f => `
           <label>
             <input type="checkbox" data-field="${f.key}" ${selectorConfig[f.key] ? 'checked' : ''}>
             <span>${f.label}</span>
@@ -470,7 +512,7 @@ export default class VisBug extends HTMLElement {
   }
 
   selector() {
-    this.deactivate_feature = Selector(this.selectorEngine)
+    this.deactivate_feature = Selector(this.selectorEngine, this)
   }
 
   screenshot() {

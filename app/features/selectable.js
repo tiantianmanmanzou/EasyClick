@@ -424,6 +424,7 @@ export function Selectable(visbug) {
       // no_hover: tool === 'guides',
       no_label:
            (tool === 'guides'
+        || tool === 'text'
         || tool === 'accessibility'
         || tool === 'margin'
         || tool === 'padding'
@@ -484,6 +485,7 @@ export function Selectable(visbug) {
       no_label: 
            tool === 'inspector' 
         || tool === 'guides' 
+        || tool === 'text'
         || tool === 'margin' 
         || tool === 'move' 
         || tool === 'accessibility',
