@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EasyClick Privacy Policy</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f3ee;
+        --card: #fffdf8;
+        --text: #1e1d1a;
+        --muted: #5f5a50;
+        --accent: #b64d7a;
+        --border: #e5ddd0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.65;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, #f8d8e5 0, transparent 22rem),
+          linear-gradient(180deg, #fbfaf7 0%, var(--bg) 100%);
+      }
+
+      main {
+        max-width: 900px;
+        margin: 48px auto;
+        padding: 0 20px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: 0 18px 45px rgba(40, 25, 18, 0.08);
+        overflow: hidden;
+      }
+
+      header {
+        padding: 36px 36px 24px;
+        border-bottom: 1px solid var(--border);
+        background:
+          linear-gradient(135deg, rgba(182, 77, 122, 0.08), rgba(182, 77, 122, 0));
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(2rem, 4vw, 3rem);
+        line-height: 1.1;
+      }
+
+      .meta {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.96rem;
+      }
+
+      section {
+        padding: 28px 36px;
+        border-top: 1px solid var(--border);
+      }
+
+      section:first-of-type {
+        border-top: 0;
+      }
+
+      h2 {
+        margin: 0 0 14px;
+        font-size: 1.25rem;
+      }
+
+      p {
+        margin: 0 0 12px;
+      }
+
+      ul {
+        margin: 12px 0 0 20px;
+        padding: 0;
+      }
+
+      li + li {
+        margin-top: 8px;
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      .note {
+        padding: 14px 16px;
+        border-left: 4px solid var(--accent);
+        background: rgba(182, 77, 122, 0.08);
+        border-radius: 8px;
+      }
+
+      footer {
+        padding: 24px 36px 36px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <article class="card">
+        <header>
+          <h1>EasyClick Privacy Policy</h1>
+          <p class="meta">
+            Effective date: July 9, 2026
+          </p>
+          <p class="meta">
+            This privacy policy applies to the EasyClick browser extension.
+          </p>
+        </header>
+
+        <section>
+          <h2>1. What EasyClick Does</h2>
+          <p>
+            EasyClick is a browser extension for front-end inspection and page-element analysis.
+            It helps users inspect elements on the current page, copy selectors, review layout
+            information, and perform visual debugging actions only after the user actively launches
+            the extension.
+          </p>
+        </section>
+
+        <section>
+          <h2>2. What Information EasyClick Can Access</h2>
+          <p>
+            When the user activates EasyClick on a page, the extension may access information from
+            the current page that is necessary to provide its features, including:
+          </p>
+          <ul>
+            <li>The current page URL and page title</li>
+            <li>Page structure and DOM content needed for element inspection</li>
+            <li>Text, attributes, selectors, XPath values, and related metadata of user-selected elements</li>
+            <li>Local extension settings such as toolbar visibility and copy-selector preferences</li>
+            <li>Console error information from the current page if the user has enabled related copy features</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>3. How EasyClick Uses Information</h2>
+          <p>
+            EasyClick uses the information above only to provide its visible extension features on
+            the page the user is actively working with. This includes showing overlays, copying
+            selectors or page context to the clipboard, toggling UI preferences, and supporting
+            front-end debugging workflows.
+          </p>
+          <p class="note">
+            EasyClick works in response to explicit user actions. It is not intended to silently
+            collect browsing data for analytics, advertising, or profiling.
+          </p>
+        </section>
+
+        <section>
+          <h2>4. Data Storage</h2>
+          <p>
+            EasyClick stores limited configuration data locally in the browser so that user
+            preferences can persist across sessions. Examples include whether the toolbar is shown
+            or hidden and which Copy Selector fields are enabled.
+          </p>
+          <p>
+            This locally stored information is used only for the extension’s functionality.
+          </p>
+        </section>
+
+        <section>
+          <h2>5. Data Transmission and Sharing</h2>
+          <p>
+            EasyClick does not sell user data.
+          </p>
+          <p>
+            EasyClick does not transfer collected page content or user-selected element data to the
+            developer’s servers.
+          </p>
+          <p>
+            EasyClick does not share such data with third parties, except where browser features
+            chosen by the user require local browser handling, such as copying content to the
+            clipboard.
+          </p>
+        </section>
+
+        <section>
+          <h2>6. Permissions</h2>
+          <p>
+            EasyClick may request browser permissions such as <code>activeTab</code>,
+            <code>contextMenus</code>, <code>scripting</code>, <code>storage</code>,
+            <code>tabs</code>, and host access in order to operate on the page the user has chosen
+            to inspect.
+          </p>
+          <p>
+            These permissions are used only to support extension features and not for advertising,
+            tracking, or unrelated data collection.
+          </p>
+        </section>
+
+        <section>
+          <h2>7. Third-Party Services</h2>
+          <p>
+            EasyClick does not rely on third-party analytics or advertising SDKs to process user
+            browsing data.
+          </p>
+        </section>
+
+        <section>
+          <h2>8. Changes to This Policy</h2>
+          <p>
+            This privacy policy may be updated from time to time. Any updated version will be
+            published at this page with a revised effective date.
+          </p>
+        </section>
+
+        <section>
+          <h2>9. Contact</h2>
+          <p>
+            If you have questions about this privacy policy or EasyClick, please contact the
+            developer through the project repository:
+          </p>
+          <p>
+            <a href="https://github.com/tiantianmanmanzou/EasyClick/issues">
+              https://github.com/tiantianmanmanzou/EasyClick/issues
+            </a>
+          </p>
+        </section>
+
+        <footer>
+          EasyClick Privacy Policy
+        </footer>
+      </article>
+    </main>
+  </body>
+</html>
