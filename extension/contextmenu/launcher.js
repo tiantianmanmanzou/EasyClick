@@ -44,6 +44,31 @@ export const setToolbarVisibilityState = (tabId, visible) => {
   syncToolbarMenu(tabId)
 }
 
+// Context-menu clicks must update the page directly. A runtime message can be
+// missed when the extension was reloaded after the toolbar was injected.
+const applyToolbarVisibility = async (tabId, visible) => {
+  try {
+    await platform.scripting.executeScript({
+      target: { tabId },
+      func: nextVisible => {
+        try {
+          localStorage.setItem('visbug_visible', nextVisible ? 'true' : 'false')
+        } catch (e) {}
+
+        const toolbar = document.querySelector('vis-bug')
+        if (toolbar) {
+          toolbar.style.setProperty(
+            'display',
+            nextVisible ? 'block' : 'none',
+            'important'
+          )
+        }
+      },
+      args: [visible],
+    })
+  } catch (e) {}
+}
+
 // This radio group reflects a PREFERENCE — "after VisBug launches, should the
 // toolbar be shown or hidden" — NOT the live runtime visibility. The preference
 // is persisted in the page's localStorage (visbug_visible) and is the only
@@ -91,7 +116,7 @@ safeCreate({
 safeCreate({
   id:       'toolbar-visibility',
   title:    '启用后工具栏状态',
-  contexts: ['action'],
+  contexts: ['all'],
 })
 safeCreate({
   id:       'toolbar-show',
@@ -99,7 +124,7 @@ safeCreate({
   title:    '显示',
   type:     'radio',
   checked:  true,
-  contexts: ['action'],
+  contexts: ['all'],
 })
 safeCreate({
   id:       'toolbar-hide',
@@ -107,7 +132,7 @@ safeCreate({
   title:    '隐藏',
   type:     'radio',
   checked:  false,
-  contexts: ['action'],
+  contexts: ['all'],
 })
 
 // onShown is Firefox-only; Chrome has no contextMenus.onShown. Accessing it on
@@ -154,6 +179,7 @@ platform.contextMenus.onClicked.addListener(({menuItemId}, tab) => {
   else return
 
   if (tab && tab.id != null) {
+    applyToolbarVisibility(tab.id, visible)
     platform.tabs.sendMessage(tab.id, { action: 'TOOLBAR_VISIBILITY', visible })
       .catch(() => {})
     // Optimistically reflect the choice immediately (the page confirms via

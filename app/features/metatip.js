@@ -18,6 +18,15 @@ const state = {
 
 const services = {}
 
+const TEXT_STYLE_SELECTOR = 'h1,h2,h3,h4,h5,h6,p,a,span,div,dd,dt,li,ol,pre,abbr,cite,dfn,kbd,q,small,input,label,legend,textarea,blockquote,date,button,figcaption,nav,header,footer,em,b,code,mark,time,summary,details,td,th'
+const INSPECT_TEXT_PROPS = [
+  'fontFamily',
+  'fontSize',
+  'fontWeight',
+  'lineHeight',
+  'letterSpacing',
+]
+
 export function MetaTip(visbug) {
   services.selectors = visbug.select
   state.restoring = true
@@ -140,14 +149,27 @@ export function removeAll() {
 const render = (el, tip = document.createElement('visbug-metatip')) => {
   const { width, height } = el.getBoundingClientRect()
   const colormode = $('vis-bug').attr('color-mode')
+  const computedStyle = window.getComputedStyle(el, null)
+  const isTextElement = el.matches(TEXT_STYLE_SELECTOR)
+  const baseStyles = getStyles(el)
 
-  const styles = getStyles(el)
+  const styles = baseStyles
+    .concat(
+      isTextElement
+        ? INSPECT_TEXT_PROPS
+            .filter(prop => !baseStyles.some(style => style.prop === prop))
+            .map(prop => ({
+              prop,
+              value: computedStyle[prop],
+            }))
+        : []
+    )
     .map(style => Object.assign(style, {
       prop: camelToDash(style.prop)
     }))
     .filter(style =>
       style.prop.includes('font-family')
-        ? el.matches('h1,h2,h3,h4,h5,h6,p,a,dd,dt,li,ol,pre,abbr,cite,dfn,kbd,q,small,input,label,legend,textarea,blockquote,date,button,figcaption,nav,header,footer,em,b,code,mark,time,summary,details')
+        ? isTextElement
         : true
     )
     .map(style => {

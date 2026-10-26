@@ -236,7 +236,19 @@
   visibility: visible;
 }
 
+:host([data-selector-editing]) li[data-tool="selector"][data-active=true] > aside,
+:host([data-selector-configuring]) li[data-tool="selector"][data-active=true] > aside {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+  visibility: visible;
+}
+
 :host([preview-open]) li[data-active=true] {
+  z-index: 3;
+}
+
+:host([data-selector-configuring]) li[data-tool="selector"][data-active=true] {
   z-index: 3;
 }
 
@@ -409,5 +421,89 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    &[data-selector-field-row] {
+      cursor: grab;
+    }
+
+    &[data-selector-field-row][data-dragging] {
+      opacity: .45;
+      cursor: grabbing;
+    }
   }
+}
+
+:host [data-selector-edit-row] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: start;
+  gap: .35em;
+  min-width: 0;
+  width: 100%;
+  overflow: visible;
+}
+
+:host [data-selector-edit-text] {
+  display: block;
+  min-width: 0;
+  overflow: visible;
+  white-space: break-spaces;
+  word-break: break-word;
+}
+
+:host :is([data-selector-edit], [data-selector-save]) {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--theme-color);
+  width: 1.1em;
+  height: 1.1em;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+:host :is([data-selector-edit], [data-selector-save]) svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+:host :is([data-selector-edit], [data-selector-save]):hover {
+  opacity: .85;
+}
+
+:host [data-selector-header-text] {
+  display: inline-block;
+  cursor: text;
+  border-radius: .2em;
+  padding: 0 .15em;
+  min-width: 0;
+  max-width: 100%;
+  white-space: break-spaces;
+  word-break: break-word;
+}
+
+:host [data-selector-custom-text] {
+  display: inline-block;
+  cursor: text;
+  border-radius: .2em;
+  padding: 0 .15em;
+  min-width: 0;
+  max-width: 100%;
+  white-space: break-spaces;
+  word-break: break-word;
+}
+
+:host [data-selector-header-text][contenteditable="true"] {
+  outline: 1px solid var(--theme-color);
+  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
+}
+
+:host [data-selector-custom-text][contenteditable="true"] {
+  outline: 1px solid var(--theme-color);
+  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
 }

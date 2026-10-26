@@ -13,53 +13,129 @@ import {
 // tag/id/classes, text, data-* attributes, outerHTML snippet) and copy it to
 // the clipboard, flashing a short toast.
 
-const MAX_TEXT   = 12
+const MAX_TEXT   = 90
 const MAX_INNER  = 12    // max chars of inner content shown before collapsing to …
+export const SELECTOR_HEADER_TEXT_DEFAULT = '修改对象：'
+export const SELECTOR_CUSTOM_TEXT_DEFAULT = '修改要求：'
 
 // ---- Configurable fields ----
 // Each block item is toggleable from the Copy Selector toolbar preview.
 // `key` matches a line builder below; persisted to localStorage.
 export const SELECTOR_FIELDS = [
-  { key: 'header',   label: '[EasyClick Element Context] 标题', default: true },
-  { key: 'url',      label: 'URL',                            default: true },
+  { key: 'header',   label: 'Header',                         default: false },
   { key: 'route',    label: 'Route',                          default: true },
-  { key: 'title',    label: 'Title',                          default: true },
   { key: 'selector', label: 'Selector',                       default: true },
-  { key: 'xpath',    label: 'XPath',                          default: true },
-  { key: 'meta',     label: 'Tag / ID / Classes',             default: true },
+  { key: 'fieldLabel', label: 'Field name',                   default: true },
   { key: 'text',     label: 'Text',                           default: true },
-  { key: 'data',     label: 'Data attributes',                default: true },
-  { key: 'html',     label: 'OuterHTML',                      default: true },
-  { key: 'errors',   label: 'Console errors',                 default: true },
+  { key: 'url',      label: 'URL',                            default: false },
+  { key: 'title',    label: 'Title',                          default: false },
+  { key: 'xpath',    label: 'XPath',                          default: false },
+  { key: 'meta',     label: 'Tag / ID / Classes',             default: false },
+  { key: 'data',     label: 'Data attributes',                default: false },
+  { key: 'html',     label: 'OuterHTML',                      default: false },
+  { key: 'errors',   label: 'Console errors',                 default: false },
+  { key: 'customText', label: 'Footer',                        default: true },
 ]
 
 export const SELECTOR_OPTIONS = [
   {
     key: 'autoExitAfterCopy',
-    label: '左键复制后自动取消选中 Copy Selector',
+    label: 'Exit Copy Selector after left-click copy',
     default: true,
   },
 ]
 
 const STORAGE_KEY = 'visbug_selector_config'
+const EXTENSION_CONFIG_REQUEST = 'easyclick-selector-config-request'
+const EXTENSION_CONFIG_SAVE = 'easyclick-selector-config-save'
+const EXTENSION_CONFIG_LOADED = 'easyclick-selector-config-loaded'
+const CONFIG_VERSION = 3
+const DEFAULT_FIELD_ORDER = SELECTOR_FIELDS.map(field => field.key)
+
+const normalizeFieldOrder = order => [
+  ...new Set([
+    ...(Array.isArray(order) ? order.filter(key => DEFAULT_FIELD_ORDER.includes(key)) : []),
+    ...DEFAULT_FIELD_ORDER,
+  ]),
+]
 
 const loadConfig = () => {
   const defaults = {}
   SELECTOR_FIELDS.forEach(f => defaults[f.key] = f.default)
   SELECTOR_OPTIONS.forEach(f => defaults[f.key] = f.default)
+  defaults.headerText = SELECTOR_HEADER_TEXT_DEFAULT
+  defaults.customTextValue = SELECTOR_CUSTOM_TEXT_DEFAULT
+  defaults.fieldOrder = DEFAULT_FIELD_ORDER
+  defaults._version = CONFIG_VERSION
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) return Object.assign(defaults, JSON.parse(saved))
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (parsed._version === CONFIG_VERSION)
+        return Object.assign(defaults, parsed)
+
+      return Object.assign({}, defaults, {
+        autoExitAfterCopy: parsed.autoExitAfterCopy ?? defaults.autoExitAfterCopy,
+        headerText: parsed.headerText || defaults.headerText,
+        customTextValue: parsed.customTextValue || defaults.customTextValue,
+      })
+    }
   } catch (e) {}
   return defaults
 }
 
 export const selectorConfig = loadConfig()
+selectorConfig.fieldOrder = normalizeFieldOrder(selectorConfig.fieldOrder)
+
+const persistSelectorConfig = () => {
+  const serialized = JSON.stringify(selectorConfig)
+  try { localStorage.setItem(STORAGE_KEY, serialized) }
+  catch (e) {}
+
+  // The extension bridge persists this independently from each website's data.
+  window.dispatchEvent(new CustomEvent(EXTENSION_CONFIG_SAVE, { detail: serialized }))
+}
+
+window.addEventListener(EXTENSION_CONFIG_LOADED, event => {
+  if (!event.detail) {
+    persistSelectorConfig()
+    return
+  }
+
+  try {
+    const saved = JSON.parse(event.detail)
+    if (!saved || typeof saved !== 'object') return
+
+    Object.assign(selectorConfig, saved)
+    selectorConfig.fieldOrder = normalizeFieldOrder(selectorConfig.fieldOrder)
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(selectorConfig)) }
+    catch (e) {}
+    window.dispatchEvent(new Event('easyclick-selector-config-applied'))
+  } catch (e) {}
+})
+
+// Ask the isolated extension script to hydrate the page-world configuration.
+window.dispatchEvent(new CustomEvent(EXTENSION_CONFIG_REQUEST))
+
+export const getSelectorFields = () =>
+  normalizeFieldOrder(selectorConfig.fieldOrder)
+    .map(key => SELECTOR_FIELDS.find(field => field.key === key))
+    .filter(Boolean)
 
 export const setSelectorField = (key, value) => {
   selectorConfig[key] = value
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(selectorConfig)) }
-  catch (e) {}
+  if (key === 'headerText' && value == null)
+    selectorConfig[key] = SELECTOR_HEADER_TEXT_DEFAULT
+  if (key === 'customTextValue' && value == null)
+    selectorConfig[key] = SELECTOR_CUSTOM_TEXT_DEFAULT
+  selectorConfig._version = CONFIG_VERSION
+  persistSelectorConfig()
+}
+
+export const setSelectorFieldOrder = order => {
+  selectorConfig.fieldOrder = normalizeFieldOrder(order)
+  selectorConfig._version = CONFIG_VERSION
+  persistSelectorConfig()
 }
 
 const truncate = (str, max) => {
@@ -68,6 +144,83 @@ const truncate = (str, max) => {
   return collapsed.length > max
     ? collapsed.slice(0, max) + '…'
     : collapsed
+}
+
+const getPseudoText = (el, pseudo) => {
+  const content = getComputedStyle(el, pseudo).content
+  if (!content || content === 'none' || content === 'normal') return ''
+
+  return content
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\\A\s?/g, '\n')
+}
+
+const getAriaLabelledByText = el =>
+  (el.getAttribute('aria-labelledby') || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(id => {
+      const label = document.getElementById(id)
+      return label?.innerText || label?.textContent || ''
+    })
+    .filter(Boolean)
+    .join(' ')
+
+const getElementText = el => {
+  // Native controls render their value outside of the DOM text tree.
+  if (el.nodeName === 'SELECT') {
+    const selectedText = Array.from(el.selectedOptions || [])
+      .map(option => option.innerText || option.textContent || '')
+      .filter(Boolean)
+      .join(', ')
+    if (selectedText) return selectedText
+  }
+
+  if (['INPUT', 'TEXTAREA'].includes(el.nodeName) && el.value)
+    return el.value
+
+  const visibleText = el.innerText || el.textContent
+  if (visibleText) return visibleText
+
+  const pseudoText = [getPseudoText(el, '::before'), getPseudoText(el, '::after')]
+    .filter(Boolean)
+    .join('')
+  if (pseudoText) return pseudoText
+
+  return el.getAttribute('aria-label')
+    || getAriaLabelledByText(el)
+    || el.getAttribute('placeholder')
+    || el.getAttribute('alt')
+    || el.getAttribute('title')
+    || ''
+}
+
+const getFieldLabel = el => {
+  const ariaLabelledByText = getAriaLabelledByText(el)
+  if (ariaLabelledByText) return ariaLabelledByText
+
+  const nativeLabels = Array.from(el.labels || [])
+    .map(getElementText)
+    .filter(Boolean)
+    .join(' ')
+  if (nativeLabels) return nativeLabels
+
+  const wrappingLabel = el.closest('label')
+  if (wrappingLabel) return getElementText(wrappingLabel)
+
+  const fieldContainer = el.closest('.search-field, .el-form-item, [data-field-label]')
+  if (fieldContainer) {
+    const fieldLabel = fieldContainer.querySelector(
+      '.search-field__label, .el-form-item__label, [data-field-label]'
+    )
+    if (fieldLabel) return getElementText(fieldLabel)
+
+    const declaredLabel = fieldContainer.getAttribute('data-field-label')
+    if (declaredLabel) return declaredLabel
+  }
+
+  return el.getAttribute('aria-label') || ''
 }
 
 // ---- Console error capture ----
@@ -155,52 +308,65 @@ const getDataAttrs = el => {
   return attrs
 }
 
+const getCurrentRoute = () =>
+  location.hash.startsWith('#/')
+    ? location.hash.slice(1)
+    : location.pathname + location.search
+
 const buildContextBlock = el => {
   const url       = location.href
-  const route     = location.pathname + location.search
+  const route     = getCurrentRoute()
   const title     = document.title
   const fullSel   = generateFullSelector(el)
   const xpath     = generateXPath(el)
   const tag       = el.nodeName.toLowerCase()
   const id        = el.id || '-'
   const classes   = el.classList.length ? Array.from(el.classList).join(' ') : '-'
-  const text      = truncate(el.textContent, MAX_TEXT)
+  const text      = truncate(getElementText(el), MAX_TEXT)
+  const fieldLabel = getFieldLabel(el).replace(/\s+/g, ' ').trim()
   const dataAttrs = getDataAttrs(el)
   const outerHTML = truncateOuterHTML(el)
 
-  // Only include lines whose field is enabled in the config.
-  const lines = []
-  if (selectorConfig.header)   lines.push('[EasyClick Element Context]')
-  if (selectorConfig.url)      lines.push(`URL: ${url}`)
-  if (selectorConfig.route)    lines.push(`Route: ${route}`)
-  if (selectorConfig.title)    lines.push(`Title: ${title}`)
-  if (selectorConfig.selector) lines.push(`Selector: ${fullSel}`)
-  if (selectorConfig.xpath)    lines.push(`XPath: ${xpath}`)
-  if (selectorConfig.meta)     lines.push(`Tag: ${tag}   ID: ${id}   Classes: ${classes}`)
-  if (selectorConfig.text)     lines.push(`Text: ${text ? JSON.stringify(text) : '(empty)'}`)
-  if (selectorConfig.data) {
-    lines.push(`Data attributes:`)
-    lines.push(Object.keys(dataAttrs).length
-      ? Object.entries(dataAttrs).map(([k, v]) => `  ${k} = ${JSON.stringify(v)}`).join('\n')
-      : '  (none)')
+  const fieldLines = {
+    header: () => [selectorConfig.headerText || SELECTOR_HEADER_TEXT_DEFAULT],
+    route: () => [`Route: ${route}`],
+    text: () => [`Text: ${text ? JSON.stringify(text) : ''}`],
+    fieldLabel: () => fieldLabel ? [`Field: ${fieldLabel}`] : [],
+    url: () => [`URL: ${url}`],
+    title: () => [`Title: ${title}`],
+    selector: () => [`Selector: ${fullSel}`],
+    xpath: () => [`XPath: ${xpath}`],
+    meta: () => [`Tag: ${tag}   ID: ${id}   Classes: ${classes}`],
+    data: () => [
+      'Data attributes:',
+      Object.keys(dataAttrs).length
+        ? Object.entries(dataAttrs).map(([k, v]) => `  ${k} = ${JSON.stringify(v)}`).join('\n')
+        : '  (none)',
+    ],
+    html: () => ['OuterHTML:', outerHTML],
+    errors: () => {
+      const errors = getErrors()
+      if (!errors.length) return ['Console errors:', '  (none)']
+
+      return [
+        'Console errors:',
+        ...errors.map((err, index) => {
+          const trimmed = err.length > 300 ? err.slice(0, 300) + '…' : err
+          return `  [${index + 1}] ${trimmed}`
+        }),
+      ]
+    },
+    customText: () => {
+      const customText = String(selectorConfig.customTextValue ?? SELECTOR_CUSTOM_TEXT_DEFAULT)
+        .replace(/\r\n?/g, '\n')
+      return [customText]
+    },
   }
-  if (selectorConfig.html) {
-    lines.push(`OuterHTML:`)
-    lines.push(outerHTML)
-  }
-  if (selectorConfig.errors) {
-    const errors = getErrors()
-    lines.push(`Console errors:`)
-    if (errors.length) {
-      errors.forEach((err, i) => {
-        const trimmed = err.length > 300 ? err.slice(0, 300) + '…' : err
-        lines.push(`  [${i + 1}] ${trimmed}`)
-      })
-    } else {
-      lines.push('  (none)')
-    }
-  }
-  lines.push('')
+
+  // The panel's saved order is the clipboard output order.
+  const lines = getSelectorFields()
+    .filter(field => selectorConfig[field.key])
+    .flatMap(field => fieldLines[field.key]())
 
   const block = lines.join('\n')
 

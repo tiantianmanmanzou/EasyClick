@@ -2,6 +2,32 @@ try {
   const platform = typeof browser === 'undefined'
     ? chrome
     : browser
+  const SELECTOR_CONFIG_REQUEST = 'easyclick-selector-config-request'
+  const SELECTOR_CONFIG_SAVE = 'easyclick-selector-config-save'
+  const SELECTOR_CONFIG_LOADED = 'easyclick-selector-config-loaded'
+
+  if (!globalThis.__easyClickSelectorConfigBridgeAttached) {
+    globalThis.__easyClickSelectorConfigBridgeAttached = true
+
+    window.addEventListener(SELECTOR_CONFIG_REQUEST, async () => {
+      try {
+        const response = await platform.runtime.sendMessage({
+          action: 'SELECTOR_CONFIG_GET',
+        })
+
+        window.dispatchEvent(new CustomEvent(SELECTOR_CONFIG_LOADED, {
+          detail: response?.config || '',
+        }))
+      } catch (e) {}
+    })
+
+    window.addEventListener(SELECTOR_CONFIG_SAVE, event => {
+      platform.runtime.sendMessage({
+        action: 'SELECTOR_CONFIG_SAVE',
+        config: event.detail,
+      }).catch(() => {})
+    })
+  }
 
   if (!document.getElementById('visbug-extension-bundle')) {
     const script = document.createElement('script')

@@ -122,3 +122,45 @@ export function createPaddingVisual(el, hover = false) {
 
   return boxdisplay
 }
+
+// Flex/Grid free space belongs to the current element, unlike parent padding.
+// Show it when the element itself has no CSS padding.
+export function createFlexLayoutVisual(el, hover = false) {
+  const display = getStyle(el, 'display') || ''
+  if (!/flex|grid/.test(display)) return null
+
+  const bounds = el.getBoundingClientRect()
+  const children = Array.from(el.children)
+    .map(child => child.getBoundingClientRect())
+    .filter(rect => rect.width > 0 && rect.height > 0)
+  if (!children.length) return null
+
+  const content = {
+    top: Math.min(...children.map(rect => rect.top)),
+    right: Math.max(...children.map(rect => rect.right)),
+    bottom: Math.max(...children.map(rect => rect.bottom)),
+    left: Math.min(...children.map(rect => rect.left)),
+  }
+  const sides = {
+    top: Math.max(0, content.top - bounds.top),
+    right: Math.max(0, bounds.right - content.right),
+    bottom: Math.max(0, bounds.bottom - content.bottom),
+    left: Math.max(0, content.left - bounds.left),
+  }
+
+  if (!Object.values(sides).some(side => side > 1)) return null
+
+  const boxdisplay = document.createElement('visbug-boxmodel')
+  boxdisplay.setAttribute('data-layout-space', '')
+  boxdisplay.position = {
+    mode: 'padding',
+    color: hover ? 'purple' : 'pink',
+    bounds,
+    sides: {
+      ...sides,
+      borders: expandBorders(getStyle(el, 'border-width')),
+    },
+  }
+
+  return boxdisplay
+}

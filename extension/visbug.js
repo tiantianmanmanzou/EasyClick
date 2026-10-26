@@ -11,9 +11,27 @@ const state = {
   injected: {},
 }
 
+const SELECTOR_CONFIG_KEY = 'easyclick_selector_config'
+
 var platform = typeof browser === 'undefined'
   ? chrome
   : browser
+
+platform.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'SELECTOR_CONFIG_GET') {
+    platform.storage.local.get([SELECTOR_CONFIG_KEY], result => {
+      sendResponse({ config: result[SELECTOR_CONFIG_KEY] || null })
+    })
+    return true
+  }
+
+  if (request.action === 'SELECTOR_CONFIG_SAVE') {
+    platform.storage.local.set({ [SELECTOR_CONFIG_KEY]: request.config }, () => {
+      sendResponse({ ok: true })
+    })
+    return true
+  }
+})
 
 // --- Working-state extension icon ---
 // When VisBug is active in a tab, swap that tab's toolbar icon to the active
@@ -119,6 +137,26 @@ const getTabOrigin = async tab_id => {
   }
 }
 
+const getTabUrl = async tab_id => {
+  try {
+    const tab = await platform.tabs.get(tab_id)
+    return tab && tab.url ? tab.url : ''
+  } catch (e) {
+    return ''
+  }
+}
+
+const canInjectIntoUrl = url => {
+  if (!url) return false
+
+  try {
+    const { protocol } = new URL(url)
+    return ['http:', 'https:', 'file:'].includes(protocol)
+  } catch (e) {
+    return false
+  }
+}
+
 // Ask the page itself whether a <vis-bug> element currently lives in it.
 // The service worker's in-memory `state` is unreliable across MV3 service
 // worker restarts (it's wiped when the worker sleeps) and across page
@@ -126,6 +164,9 @@ const getTabOrigin = async tab_id => {
 // the page is the only source of truth for "is VisBug actually injected here?"
 const isVisBugInPage = async tab_id => {
   try {
+    const url = await getTabUrl(tab_id)
+    if (!canInjectIntoUrl(url)) return false
+
     const [res] = await platform.scripting.executeScript({
       target: {tabId: tab_id},
       func: () => !!document.querySelector('vis-bug'),
@@ -138,6 +179,12 @@ const isVisBugInPage = async tab_id => {
 
 const injectIntoTab = async (tab_id, isAuto = false) => {
   try {
+    const url = await getTabUrl(tab_id)
+    if (!canInjectIntoUrl(url)) {
+      clearBadge(tab_id)
+      return
+    }
+
     const origin = await getTabOrigin(tab_id)
 
     await platform.scripting.insertCSS({

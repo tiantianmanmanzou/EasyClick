@@ -85,6 +85,8 @@ export class BoxModel extends HTMLElement {
   }
 
   createMeasurements({mode, bounds, sides, color}) {
+    this.measurementMode = mode
+
     const win_width   = window.innerWidth
     const pill_height = 18
     const offset      = 3
@@ -176,6 +178,10 @@ export class BoxModel extends HTMLElement {
   }
 
   createMeasurement(line_model, node_label_id=0) {
+    // Padding is drawn within the selected element. Keep its numeric badge in
+    // that same region instead of allowing the bottom/right badges to overflow.
+    if (this.measurementMode === 'padding') line_model.inside = true
+
     const measurement = document.createElement('visbug-distance')
     measurement.position = { line_model, node_label_id }
     this.$shadow.appendChild(measurement)

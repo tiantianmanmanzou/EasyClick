@@ -1,7 +1,7 @@
 {
   "name": "EasyClick",
   "short_name": "EasyClick",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "description": "Open source browser design tools",
   "manifest_version": 3,
   "icons": {

@@ -7,7 +7,7 @@ import { watchImagesForUpload } from './imageswap'
 import { queryPage } from './search'
 import { createMeasurements, clearMeasurements } from './measurements'
 import { createMarginVisual } from './margin'
-import { createPaddingVisual } from './padding'
+import { createPaddingVisual, createFlexLayoutVisual } from './padding'
 
 import { showTip as showMetaTip, removeAll as removeAllMetaTips } from './metatip'
 import { showTip as showAccessibilityTip, removeAll as removeAllAccessibilityTips } from './accessibility'
@@ -434,13 +434,12 @@ export function Selectable(visbug) {
       backdropFactory: tool === 'selector' ? createSelectorTargetBackdrop : null,
     })
 
+    // Copy Selector only visualizes the element directly under the pointer.
+    // Its own Flex/Grid gaps are part of that element's layout; parent gaps
+    // remain excluded to avoid ambiguous highlights.
+    clearContainerHover()
     if (tool === 'selector')
-      overlayContainerHoverUI(getHoverContainer($target))
-    else
-      clearContainerHover()
-
-    if (tool === 'selector')
-      overlayGapHoverUI(getGapHost($target))
+      overlayGapHoverUI($target)
     else
       clearGapHover()
 
@@ -979,7 +978,7 @@ export function Selectable(visbug) {
   const createSelectorTargetBackdrop = el =>
     hasVisiblePadding(el)
       ? createPaddingVisual(el, true)
-      : null
+      : createFlexLayoutVisual(el, true)
 
   const createSelectorContainerBackdrop = el =>
     hasVisiblePadding(el)

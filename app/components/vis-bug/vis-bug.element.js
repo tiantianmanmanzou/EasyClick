@@ -23,7 +23,8 @@ import * as Icons                 from './vis-bug.icons'
 import { provideSelectorEngine }  from '../../features/search'
 import { PluginRegistry }         from '../../plugins/_registry'
 import {
-  SELECTOR_FIELDS, SELECTOR_OPTIONS, selectorConfig, setSelectorField
+  getSelectorFields, SELECTOR_OPTIONS, selectorConfig, setSelectorField, setSelectorFieldOrder,
+  SELECTOR_HEADER_TEXT_DEFAULT, SELECTOR_CUSTOM_TEXT_DEFAULT
 } from '../../features/selector'
 import {
   metaKey,
@@ -31,6 +32,13 @@ import {
   constructibleStylesheetSupport,
   schemeRule
 } from '../../utilities/'
+
+const escapeHTML = value => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
 
 export default class VisBug extends HTMLElement {
   constructor() {
@@ -40,6 +48,7 @@ export default class VisBug extends HTMLElement {
     this.$shadow        = this.attachShadow({mode: 'closed'})
     this.toolbarPositionStorageKey = 'visbug_toolbar_position'
     this.handleViewportChange = () => this.updatePreviewSide()
+    this.handleSelectorConfigApplied = () => this.refreshSelectorConfigUI()
     this.applyScheme    = schemeRule(
       this.$shadow,
       VisBugStyles, VisBugLightStyles, VisBugDarkStyles
@@ -54,6 +63,7 @@ export default class VisBug extends HTMLElement {
     this._tutsBaseURL = this.getAttribute('tutsBaseURL') || 'tuts'
 
     this.setup()
+    window.addEventListener('easyclick-selector-config-applied', this.handleSelectorConfigApplied)
     this.restoreToolbarPosition()
     this.updatePreviewSide()
     window.addEventListener('resize', this.handleViewportChange)
@@ -112,10 +122,13 @@ export default class VisBug extends HTMLElement {
   }
 
   disconnectedCallback() {
-    this.deactivate_feature()
+    if (typeof this.deactivate_feature === 'function') {
+      this.deactivate_feature()
+    }
     this.cleanup()
     this.selectorEngine.disconnect()
     window.removeEventListener('resize', this.handleViewportChange)
+    window.removeEventListener('easyclick-selector-config-applied', this.handleSelectorConfigApplied)
     hotkeys.unbind(
       Object.keys(this.toolbar_model).reduce((events, key) =>
         events += ',' + key, ''))
@@ -205,8 +218,50 @@ export default class VisBug extends HTMLElement {
     }
   }
 
+  refreshSelectorConfigUI() {
+    const fieldsPanel = this.$shadow.querySelector('[data-selector-checkbox]')
+    if (!fieldsPanel) return
+
+    const rowsByKey = new Map(
+      Array.from(fieldsPanel.querySelectorAll('[data-selector-field-row]'))
+        .map(row => [row.dataset.field, row])
+    )
+    getSelectorFields().forEach(field => {
+      const row = rowsByKey.get(field.key)
+      if (row) fieldsPanel.appendChild(row)
+    })
+
+    this.$shadow.querySelectorAll('[data-selector-checkbox] input[type="checkbox"]')
+      .forEach(box => {
+        box.checked = Boolean(selectorConfig[box.dataset.field])
+      })
+
+    const headerEditor = this.$shadow.querySelector('[data-selector-header-text]')
+    if (headerEditor)
+      headerEditor.textContent = selectorConfig.headerText ?? SELECTOR_HEADER_TEXT_DEFAULT
+
+    const footerEditor = this.$shadow.querySelector('[data-selector-custom-text]')
+    if (footerEditor)
+      footerEditor.textContent = selectorConfig.customTextValue ?? SELECTOR_CUSTOM_TEXT_DEFAULT
+  }
+
   // Wire up the Copy Selector preview checkboxes.
   setupSelectorConfig() {
+    this.$shadow.querySelectorAll('[data-selector-checkbox]').forEach(panel => {
+      const keepPanelOpen = e => {
+        e.stopPropagation()
+        this.setAttribute('data-selector-configuring', '')
+      }
+
+      // Keep label clicks inside the panel so they cannot toggle the toolbar
+      // button and deselect Copy Selector.
+      panel.addEventListener('pointerdown', keepPanelOpen)
+      panel.addEventListener('click', keepPanelOpen)
+      panel.addEventListener('dragstart', keepPanelOpen)
+      panel.addEventListener('dragover', keepPanelOpen)
+      panel.addEventListener('drop', keepPanelOpen)
+    })
+
     const boxes = this.$shadow.querySelectorAll('[data-selector-checkbox] input[type="checkbox"]')
     boxes.forEach(box => {
       box.addEventListener('change', e => {
@@ -217,6 +272,179 @@ export default class VisBug extends HTMLElement {
       // Stop toolbar drag/click handlers from firing when interacting here.
       box.addEventListener('mousedown', e => e.stopPropagation())
       box.addEventListener('click', e => e.stopPropagation())
+    })
+
+    const fieldRows = this.$shadow.querySelectorAll('[data-selector-field-row]')
+    let draggedRow = null
+    fieldRows.forEach(row => {
+      row.addEventListener('dragstart', e => {
+        draggedRow = row
+        row.setAttribute('data-dragging', '')
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', row.dataset.field)
+      })
+      row.addEventListener('dragover', e => {
+        if (!draggedRow || draggedRow === row) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+      })
+      row.addEventListener('drop', e => {
+        e.preventDefault()
+        if (!draggedRow || draggedRow === row) return
+
+        const insertBefore = e.clientY < row.getBoundingClientRect().top + row.offsetHeight / 2
+        const parent = row.parentElement
+        parent.insertBefore(draggedRow, insertBefore ? row : row.nextSibling)
+        setSelectorFieldOrder(
+          Array.from(parent.querySelectorAll('[data-selector-field-row]'))
+            .map(fieldRow => fieldRow.dataset.field)
+        )
+      })
+      row.addEventListener('dragend', () => {
+        draggedRow?.removeAttribute('data-dragging')
+        draggedRow = null
+      })
+    })
+
+    const startEditing = editor => {
+      this.setAttribute('data-selector-editing', '')
+      editor.setAttribute('contenteditable', 'true')
+      editor.focus()
+
+      const selection = window.getSelection()
+      const range = document.createRange()
+      range.selectNodeContents(editor)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+
+    const readEditorValue = editor =>
+      editor.textContent
+        .replace(/\r\n/g, '\n')
+        .replace(/\u00a0/g, ' ')
+
+    const writeEditorValue = (editor, value) => {
+      editor.textContent = value
+    }
+
+    const insertEditorText = (editor, text) => {
+      const shadowSelection = this.$shadow.getSelection?.()
+      const selection = shadowSelection?.rangeCount
+        ? shadowSelection
+        : window.getSelection()
+      if (!selection?.rangeCount) {
+        editor.textContent += text
+        return
+      }
+
+      const range = selection.getRangeAt(0)
+      if (!editor.contains(range.commonAncestorContainer)) {
+        editor.textContent += text
+        return
+      }
+      range.deleteContents()
+      const textNode = document.createTextNode(text)
+      range.insertNode(textNode)
+      range.setStartAfter(textNode)
+      range.collapse(true)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+
+    const bindEditableText = ({ selector, field, fallback }) => {
+      const editor = this.$shadow.querySelector(selector)
+      if (!editor) return
+      const trigger = editor
+        .closest('[data-selector-edit-row]')
+        ?.querySelector('[data-selector-edit]')
+      const saveTrigger = editor
+        .closest('[data-selector-edit-row]')
+        ?.querySelector('[data-selector-save]')
+
+      const finishEditing = () => {
+        if (!editor.hasAttribute('contenteditable')) return
+
+        const nextText = readEditorValue(editor)
+        const savedText = nextText === '' ? fallback : nextText
+        writeEditorValue(editor, savedText)
+        editor.removeAttribute('contenteditable')
+        this.removeAttribute('data-selector-editing')
+        setSelectorField(field, savedText)
+      }
+
+      editor.addEventListener('mousedown', e => e.stopPropagation())
+      editor.addEventListener('click', e => {
+        e.preventDefault()
+        e.stopPropagation()
+      })
+      editor.addEventListener('dblclick', e => {
+        e.preventDefault()
+        e.stopPropagation()
+        startEditing(editor)
+      })
+      editor.addEventListener('beforeinput', e => {
+        if (!['insertLineBreak', 'insertParagraph'].includes(e.inputType)) return
+
+        e.preventDefault()
+        insertEditorText(editor, '\n')
+      })
+      editor.addEventListener('paste', e => {
+        e.preventDefault()
+        insertEditorText(editor, e.clipboardData?.getData('text/plain') || '')
+      })
+      editor.addEventListener('blur', finishEditing)
+      editor.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault()
+          finishEditing()
+          return
+        }
+
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          insertEditorText(editor, '\n')
+          return
+        }
+
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          writeEditorValue(editor, selectorConfig[field] ?? fallback)
+          editor.removeAttribute('contenteditable')
+          this.removeAttribute('data-selector-editing')
+        }
+      })
+
+      if (trigger) {
+        trigger.addEventListener('mousedown', e => e.stopPropagation())
+        trigger.addEventListener('click', e => {
+          e.preventDefault()
+          e.stopPropagation()
+          startEditing(editor)
+        })
+      }
+
+      if (saveTrigger) {
+        saveTrigger.addEventListener('mousedown', e => {
+          e.preventDefault()
+          e.stopPropagation()
+        })
+        saveTrigger.addEventListener('click', e => {
+          e.preventDefault()
+          e.stopPropagation()
+          finishEditing()
+        })
+      }
+    }
+
+    bindEditableText({
+      selector: '[data-selector-header-text]',
+      field: 'headerText',
+      fallback: SELECTOR_HEADER_TEXT_DEFAULT,
+    })
+    bindEditableText({
+      selector: '[data-selector-custom-text]',
+      field: 'customTextValue',
+      fallback: SELECTOR_CUSTOM_TEXT_DEFAULT,
     })
   }
 
@@ -236,9 +464,23 @@ export default class VisBug extends HTMLElement {
       if (!saved) return
 
       const { x, y } = JSON.parse(saved)
-      if (Number.isFinite(x)) this.style.left = `${x}px`
-      if (Number.isFinite(y)) this.style.top = `${y}px`
+      this.persistToolbarPosition({ x, y })
     } catch (e) {}
+  }
+
+  clampToolbarPosition({x, y} = {}) {
+    // Keep the drag handle reachable when a saved position came from a larger
+    // monitor, a browser zoom change, or an invalid older value.
+    const minimumVisibleSize = 48
+    const maxX = Math.max(0, window.innerWidth - minimumVisibleSize)
+    const maxY = Math.max(0, window.innerHeight - minimumVisibleSize)
+    const currentX = Number.isFinite(x) ? x : parseInt(this.style.left, 10) || 0
+    const currentY = Number.isFinite(y) ? y : parseInt(this.style.top, 10) || 0
+
+    return {
+      x: Math.min(Math.max(0, currentX), maxX),
+      y: Math.min(Math.max(0, currentY), maxY),
+    }
   }
 
   updatePreviewSide() {
@@ -253,8 +495,7 @@ export default class VisBug extends HTMLElement {
 
   persistToolbarPosition({x, y} = {}) {
     try {
-      const nextX = Number.isFinite(x) ? x : parseInt(this.style.left, 10) || 0
-      const nextY = Number.isFinite(y) ? y : parseInt(this.style.top, 10) || 0
+      const { x: nextX, y: nextY } = this.clampToolbarPosition({x, y})
 
       this.style.left = `${nextX}px`
       this.style.top = `${nextY}px`
@@ -299,6 +540,8 @@ export default class VisBug extends HTMLElement {
     }
 
     if (this.active_tool) {
+      if (this.active_tool.dataset.tool === 'selector')
+        this.removeAttribute('data-selector-configuring')
       this.active_tool.setAttribute('data-active', 'false')
       if (this.deactivate_feature) this.deactivate_feature()
     }
@@ -314,6 +557,8 @@ export default class VisBug extends HTMLElement {
   // Deselect the active tool, deactivating its feature.
   deselectTool() {
     if (!this.active_tool) return
+    if (this.active_tool.dataset.tool === 'selector')
+      this.removeAttribute('data-selector-configuring')
     this.active_tool.setAttribute('data-active', 'false')
     if (this.deactivate_feature) this.deactivate_feature()
     this.active_tool = null
@@ -438,16 +683,21 @@ export default class VisBug extends HTMLElement {
   selectorConfigUI() {
     return `
       <fieldset data-selector-checkbox>
-        <legend>复制到剪贴板的内容</legend>
-        ${SELECTOR_FIELDS.map(f => `
-          <label>
+        <legend>Clipboard content</legend>
+        ${getSelectorFields().map(f => `
+          <label data-selector-field-row data-field="${f.key}" draggable="true" title="Drag to reorder">
             <input type="checkbox" data-field="${f.key}" ${selectorConfig[f.key] ? 'checked' : ''}>
-            <span>${f.label}</span>
+            ${f.key === 'header'
+              ? `<span data-selector-edit-row><span data-selector-edit-text>Header: [<span data-selector-header-text title="Double-click to edit header">${escapeHTML(selectorConfig.headerText ?? SELECTOR_HEADER_TEXT_DEFAULT)}</span>]</span>${this.selectorEditButton('Edit header')}${this.selectorSaveButton('Save header')}</span>`
+              : f.key === 'customText'
+                ? `<span data-selector-edit-row><span data-selector-edit-text>Footer: [<span data-selector-custom-text title="Double-click to edit footer">${escapeHTML(selectorConfig.customTextValue ?? SELECTOR_CUSTOM_TEXT_DEFAULT)}</span>]</span>${this.selectorEditButton('Edit footer')}${this.selectorSaveButton('Save footer')}</span>`
+              : `<span>${f.label}</span>`
+            }
           </label>
         `).join('')}
       </fieldset>
       <fieldset data-selector-checkbox>
-        <legend>配置</legend>
+        <legend>Settings</legend>
         ${SELECTOR_OPTIONS.map(f => `
           <label>
             <input type="checkbox" data-field="${f.key}" ${selectorConfig[f.key] ? 'checked' : ''}>
@@ -455,6 +705,26 @@ export default class VisBug extends HTMLElement {
           </label>
         `).join('')}
       </fieldset>
+    `
+  }
+
+  selectorEditButton(label) {
+    return `
+      <button type="button" data-selector-edit aria-label="${label}" title="${label}">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79z"/>
+        </svg>
+      </button>
+    `
+  }
+
+  selectorSaveButton(label) {
+    return `
+      <button type="button" data-selector-save aria-label="${label}" title="${label}">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm-5 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zM6 8V5h9v3H6z"/>
+        </svg>
+      </button>
     `
   }
 
@@ -500,7 +770,11 @@ export default class VisBug extends HTMLElement {
   }
 
   inspector() {
-    this.deactivate_feature = MetaTip(this.selectorEngine)
+    const teardownMetaTip = MetaTip(this.selectorEngine)
+    this.deactivate_feature = () => {
+      teardownMetaTip()
+      this.selectorEngine.unselect_all({silent: true})
+    }
   }
 
   accessibility() {

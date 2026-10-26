@@ -21,15 +21,17 @@ export class Distance extends HTMLElement {
     this.$shadow.innerHTML  = this.render(line_model, node_label_id)
   }
 
-  set styleProps({y,x,d,q,v = false, color}) {
+  set styleProps({y,x,d,q,v = false, color, inside = false}) {
     this.style.setProperty('--top', `${Math.round(y + window.scrollY)}px`)
     this.style.setProperty('--right', 'auto')
     this.style.setProperty('--left', `${x}px`)
-    this.style.setProperty('--direction', v ? 'column' : 'row')
-    this.style.setProperty('--quadrant', q)
+    const reverseInsideFlow = inside && (q === 'bottom' || q === 'right')
 
-    if (q === 'left')
-      this.style.setProperty('--justify', 'flex-end')
+    this.style.setProperty('--direction', v
+      ? (reverseInsideFlow ? 'column-reverse' : 'column')
+      : (reverseInsideFlow ? 'row-reverse' : 'row'))
+    this.style.setProperty('--quadrant', q)
+    this.style.setProperty('--justify', inside || q !== 'left' ? 'flex-start' : 'flex-end')
 
     v
       ? this.style.setProperty('--distance-h', `${d}px`)
